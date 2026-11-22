@@ -145,8 +145,8 @@ export function PolicyEditor({ scope, initial, today, scopeLabel }: { scope: str
       </Section>
 
       <Section title="Payments">
-        <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" className="mt-0.5 size-4 accent-[var(--brand)]" checked={settings.prorate} onChange={(event) => set("prorate", event.target.checked)} />
+        <label className="flex min-h-11 items-start gap-2.5 text-sm">
+          <input type="checkbox" className="mt-0.5 size-5 shrink-0 accent-[var(--brand)]" checked={settings.prorate} onChange={(event) => set("prorate", event.target.checked)} />
           <span>
             <span className="font-medium">Prorate rent</span>
             <span className="block text-muted-foreground">Charge only the days occupied when a tenant moves in or out mid-month.</span>
@@ -161,10 +161,10 @@ export function PolicyEditor({ scope, initial, today, scopeLabel }: { scope: str
                   {index + 1}. {ORDER_LABELS[type]}
                 </span>
                 <span className="flex gap-1">
-                  <Button type="button" variant="ghost" size="icon" className="size-7" aria-label={`Move ${ORDER_LABELS[type]} up`} disabled={index === 0} onClick={() => move(index, -1)}>
+                  <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={`Move ${ORDER_LABELS[type]} up`} disabled={index === 0} onClick={() => move(index, -1)}>
                     <ArrowUp />
                   </Button>
-                  <Button type="button" variant="ghost" size="icon" className="size-7" aria-label={`Move ${ORDER_LABELS[type]} down`} disabled={index === settings.allocationOrder.length - 1} onClick={() => move(index, 1)}>
+                  <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={`Move ${ORDER_LABELS[type]} down`} disabled={index === settings.allocationOrder.length - 1} onClick={() => move(index, 1)}>
                     <ArrowDown />
                   </Button>
                 </span>

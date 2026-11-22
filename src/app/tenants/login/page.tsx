@@ -21,6 +21,7 @@ export default async function TenantLoginPage({ searchParams }: PageProps<"/tena
         appName={environment.APP_NAME}
         supportEmail={environment.SUPPORT_EMAIL}
         expiredLink={link === "expired"}
+        testSignIn={environment.MPESA_ENV === "sandbox"}
       />
     </SignInLayout>
   );

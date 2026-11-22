@@ -7,6 +7,7 @@ import { z } from "zod";
 import { checkLoginCode, issueLoginCode, LOGIN_CODE_LENGTH } from "@/authentication/login-codes";
 import { clearPendingLogin, createSession, readPendingLogin, setPendingLogin } from "@/authentication/session";
 import { checkUnitLogin, UNIT_LOGIN_WINDOW_MINUTES } from "@/authentication/unit-login";
+import { getEnvironment } from "@/configuration/environment";
 import { getDatabase } from "@/database/client";
 import { leases, tenants } from "@/database/schema";
 import { sendLoginCode } from "@/services/notifications";
@@ -15,7 +16,7 @@ import { maskPhone, normaliseKenyanPhone } from "@/utilities/phone";
 
 export type TenantLoginState = {
   step: "phone" | "code" | "lease";
-  /** On the first step: sign in with phone + unit code (default) or get an SMS code. */
+  /** On the first step: get an SMS code (always), or the phone + unit code test sign-in (sandbox only). */
   method?: "unit" | "code";
   /** Typed values kept after an error. */
   typedPhone?: string;
@@ -49,24 +50,35 @@ async function clientAddress(): Promise<string | null> {
   return list.get("x-forwarded-for")?.split(",")[0]?.trim() || list.get("x-real-ip") || null;
 }
 
+/** The phone + unit code shortcut is a test sign-in: it only exists when MPESA_ENV=sandbox. */
+function testSignInAllowed(): boolean {
+  return getEnvironment().MPESA_ENV === "sandbox";
+}
+
 /**
  * Two ways in:
- * - phone number + unit code (e.g. ROOM1K) → 30-day session for that unit's lease;
  * - phone number → 6-digit SMS code → (if more than one current lease) choose the lease → 30-day session.
+ *   This is the only sign-in in live mode.
+ * - sandbox only ("Test sign-in"): phone number + unit code (e.g. ROOM1K) → 30-day session for that unit's lease.
+ *   Refused here on the server when MPESA_ENV=live, whatever the form sends.
  */
 export async function tenantLogin(previous: TenantLoginState, formData: FormData): Promise<TenantLoginState> {
   const intent = formData.get("intent");
 
   if (intent === "restart") {
     await clearPendingLogin("tenant_choose_lease");
-    return { step: "phone", method: previous.step === "code" || previous.method === "code" ? "code" : "unit" };
+    return { step: "phone", method: previous.method === "unit" && testSignInAllowed() ? "unit" : "code" };
   }
 
   if (intent === "use-code" || intent === "use-unit") {
-    return { step: "phone", method: intent === "use-code" ? "code" : "unit" };
+    return { step: "phone", method: intent === "use-unit" && testSignInAllowed() ? "unit" : "code" };
   }
 
   if (intent === "unit") {
+    if (!testSignInAllowed()) {
+      console.warn("[tenant login] phone + unit code sign-in refused: test sign-in is sandbox only");
+      return { step: "phone", method: "code", error: "Sign in with the code we text to your phone." };
+    }
     const typedPhone = String(formData.get("phone") ?? "").slice(0, 20);
     const typedUnit = String(formData.get("unit") ?? "").slice(0, 30);
     const phone = normaliseKenyanPhone(typedPhone);

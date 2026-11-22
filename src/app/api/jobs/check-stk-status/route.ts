@@ -4,6 +4,8 @@ import { runJob } from "@/services/jobs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Up to 10 Daraja checks spaced 1 s apart. */
+export const maxDuration = 60;
 
 /** GET for Vercel Cron / Cloud Scheduler, POST for the queue. */
 async function handle(request: Request) {

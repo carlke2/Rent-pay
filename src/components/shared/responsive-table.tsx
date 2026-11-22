@@ -63,7 +63,7 @@ export function ResponsiveTable<Row>({
       <ul className="grid gap-3 md:hidden">
         {rows.map((row) => (
           <li key={rowKey(row)} className="rounded-xl border bg-card p-4">
-            {primary ? <div className="mb-2 min-w-0 truncate font-medium">{primary.cell(row)}</div> : null}
+            {primary ? <div className="mb-1 min-w-0 truncate font-medium [&_a]:inline-flex [&_a]:max-w-full [&_a]:items-center pointer-coarse:[&_a]:min-h-11">{primary.cell(row)}</div> : null}
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
               {columns
                 .filter((column) => column !== primary && !column.hideOnCard && !isAction(column))

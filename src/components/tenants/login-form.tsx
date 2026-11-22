@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useTransition, type FormEvent } from "react";
-import { ArrowLeft, CircleAlert, Loader2, LockKeyhole, Phone, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CircleAlert, FlaskConical, KeyRound, Loader2, LockKeyhole, Phone, ShieldCheck } from "lucide-react";
 import { tenantLogin, type TenantLoginState } from "@/app/tenants/login/actions";
 import { CodeInput } from "@/components/shared/code-input";
 import { ResendCountdown } from "@/components/shared/resend-countdown";
@@ -52,11 +52,14 @@ export function TenantLoginForm({
   appName,
   supportEmail,
   expiredLink,
+  testSignIn = false,
 }: {
   paybill: string;
   appName: string;
   supportEmail?: string;
   expiredLink?: boolean;
+  /** MPESA_ENV=sandbox: offer the phone + unit code shortcut, clearly labelled "Test sign-in". */
+  testSignIn?: boolean;
 }) {
   const [state, dispatch, actionPending] = useActionState<TenantLoginState, FormData>(tenantLogin, {
     step: "phone",
@@ -134,6 +137,44 @@ export function TenantLoginForm({
     );
   }
 
+  if (testSignIn && state.method === "unit") {
+    return (
+      <form onSubmit={onSubmit} className={styles.form} key="unit" noValidate>
+        <input type="hidden" name="intent" value="unit" />
+        <Logo appName={appName} />
+        <p className={styles.testBadge} role="note">
+          <FlaskConical width={16} height={16} aria-hidden="true" /> Test sign-in · sandbox only
+        </p>
+        <div className={styles.headingBlock}>
+          <h1 className={styles.heading}>Test sign-in</h1>
+          <p className={styles.subheading}>Phone number and unit code, no SMS. This shortcut doesn&apos;t exist in live mode.</p>
+        </div>
+        <Message state={state} />
+        <div className={styles.field}>
+          <label htmlFor="test-phone" className={styles.label}>Phone number</label>
+          <div className={styles.inputWrap}>
+            <Phone className={styles.inputIcon} aria-hidden="true" />
+            <span className={styles.prefix} aria-hidden="true">+254</span>
+            <input id="test-phone" name="phone" type="tel" inputMode="tel" required defaultValue={state.typedPhone} placeholder="712 345 678" aria-invalid={state.fieldErrors?.phone ? true : undefined} className={`${styles.input} ${styles.inputWithPrefix}`} />
+          </div>
+          {state.fieldErrors?.phone ? <p className={styles.fieldError}>{state.fieldErrors.phone}</p> : null}
+        </div>
+        <div className={styles.field}>
+          <label htmlFor="test-unit" className={styles.label}>Unit code</label>
+          <div className={styles.inputWrap}>
+            <KeyRound className={styles.inputIcon} aria-hidden="true" />
+            <input id="test-unit" name="unit" required autoCapitalize="characters" defaultValue={state.typedUnit} placeholder="KIL-A01" aria-invalid={state.fieldErrors?.unit ? true : undefined} className={styles.input} />
+          </div>
+          {state.fieldErrors?.unit ? <p className={styles.fieldError}>{state.fieldErrors.unit}</p> : null}
+        </div>
+        <Submit pending={pending}>Test sign-in</Submit>
+        <button type="submit" name="intent" value="use-code" formNoValidate className={styles.textButton}>
+          Use an SMS code instead
+        </button>
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={onSubmit} className={styles.form} key="phone" noValidate>
       <input type="hidden" name="intent" value="request" />
@@ -181,6 +222,12 @@ export function TenantLoginForm({
         <ShieldCheck width={18} height={18} aria-hidden="true" />
         Admin login
       </Link>
+
+      {testSignIn ? (
+        <button type="submit" name="intent" value="use-unit" formNoValidate className={styles.testLink}>
+          <FlaskConical width={16} height={16} aria-hidden="true" /> Test sign-in (sandbox): phone + unit code
+        </button>
+      ) : null}
 
       <p className={styles.paybill}>
         Or pay from M-Pesa: Paybill <strong>{paybill}</strong>, account = your unit code.

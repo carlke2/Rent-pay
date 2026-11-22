@@ -14,7 +14,7 @@ export function ReceiptActions({ receiptUrl, shareText }: Props) {
       <button
         type="button"
         onClick={() => window.print()}
-        className="rounded-lg bg-[#111111] px-4 py-2 text-sm font-semibold text-white"
+        className="inline-flex h-11 items-center rounded-lg bg-[#111111] px-4 text-sm font-semibold text-white"
       >
         PDF
       </button>
@@ -22,7 +22,7 @@ export function ReceiptActions({ receiptUrl, shareText }: Props) {
         href={wa}
         target="_blank"
         rel="noopener noreferrer"
-        className="rounded-lg border border-[#111111] px-4 py-2 text-sm font-semibold text-[#111111]"
+        className="inline-flex h-11 items-center rounded-lg border border-[#111111] px-4 text-sm font-semibold text-[#111111] no-underline"
       >
         Share
       </a>

@@ -146,7 +146,7 @@ export function TenantShell({ appName, tenantName, unitCode, buildingName, canPa
 
       <div className="lg:pl-[248px]">
         <header className="sticky top-0 z-30 flex h-[calc(4rem+env(safe-area-inset-top))] items-center gap-3 border-b border-sidebar-border bg-background pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:px-6 lg:h-[calc(72px+env(safe-area-inset-top))] lg:px-8 print:hidden">
-          <Link href="/tenants" className="shrink-0 lg:hidden" aria-label={`${appName} home`}>
+          <Link href="/tenants" className="-ml-1.5 grid size-11 shrink-0 place-items-center lg:hidden" aria-label={`${appName} home`}>
             <LogoMark shape="tile" className="size-8" />
           </Link>
           <p className="min-w-0 flex-1 truncate font-display text-xl font-normal tracking-[-0.01em] text-heading lg:text-2xl">{title}</p>

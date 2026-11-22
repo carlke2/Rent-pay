@@ -566,22 +566,46 @@ export async function refreshStkStatus(requestId: string): Promise<PaymentReques
   return updated.status;
 }
 
-/** Checks every STK request still pending two minutes after it was sent. Also sends deferred tenant incomplete SMS. */
-export async function checkPendingStkRequests(): Promise<{ checked: number; failed: number }> {
+/** Daraja status queries per run, and the pause between them, to stay under Daraja's rate limits. */
+export const STK_CHECKS_PER_RUN = 10;
+const STK_CHECK_GAP_MS = 1_000;
+
+/** Daraja throttling: HTTP 429, or the 500.003.02 "spike arrest" / "system is busy" error. */
+function isDarajaRateLimit(error: unknown): boolean {
+  if (!(error instanceof DarajaError)) return false;
+  if (error.status === 429 || error.errorCode === "500.003.02") return true;
+  return /spike arrest|rate limit|quota|too many requests/i.test(error.message);
+}
+
+/**
+ * Checks STK requests still pending two minutes after they were sent: at most 10 per run, 1 s apart,
+ * least recently checked first. A Daraja rate-limit response stops the run (logged once, not an error);
+ * the rest wait for the next run. Also sends deferred tenant incomplete SMS.
+ */
+export async function checkPendingStkRequests(): Promise<{ checked: number; failed: number; rateLimited: boolean }> {
   const database = getDatabase();
   const cutoff = new Date(Date.now() - 2 * 60_000);
   const pending = await database
     .select({ id: paymentRequests.id })
     .from(paymentRequests)
     .where(and(eq(paymentRequests.status, "pending"), lt(paymentRequests.createdAt, cutoff)))
-    .orderBy(asc(paymentRequests.createdAt))
-    .limit(100);
+    .orderBy(sql`${paymentRequests.lastCheckedAt} asc nulls first`, asc(paymentRequests.createdAt))
+    .limit(STK_CHECKS_PER_RUN);
 
+  let checked = 0;
   let failed = 0;
-  for (const request of pending) {
+  let rateLimited = false;
+  for (const [index, request] of pending.entries()) {
+    if (index > 0) await new Promise((resolve) => setTimeout(resolve, STK_CHECK_GAP_MS));
     try {
       await refreshStkStatus(request.id);
+      checked += 1;
     } catch (error) {
+      if (isDarajaRateLimit(error)) {
+        rateLimited = true;
+        console.warn(`[check-stk-status] Daraja rate limit after ${checked} checks; the remaining ${pending.length - index} wait for the next run`);
+        break;
+      }
       failed += 1;
       console.error(`STK status check for ${request.id} failed`, error);
     }
@@ -637,7 +661,7 @@ export async function checkPendingStkRequests(): Promise<{ checked: number; fail
     });
   }
 
-  return { checked: pending.length, failed };
+  return { checked, failed, rateLimited };
 }
 
 /** Status of a payment request, plus the receipt token once paid. */

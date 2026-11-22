@@ -274,8 +274,8 @@
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
-  /* No sideways page scroll on small screens: only table wrappers scroll. */
-  html,
+  /* No sideways page scroll on small screens: only table wrappers scroll. Body only, and clip (not hidden),
+     so a layout bug that overflows stays visible in dev tools instead of being masked. */
   body {
     overflow-x: clip;
   }

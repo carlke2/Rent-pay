@@ -9,7 +9,7 @@ import { getTenantHome, getTenantTrend, listTenantBills, listTenantReceipts } fr
 import { cn } from "@/utilities/class-names";
 import { formatDate, formatNairobiDateTime, formatPeriod } from "@/utilities/dates";
 import { formatAmount, formatShillings, sumShillings } from "@/utilities/money";
-import { currentTenantLease } from "../current-lease";
+import { currentTenantLease } from "../../current-lease";
 
 export const metadata: Metadata = { title: "Overview" };
 

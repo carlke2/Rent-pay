@@ -362,7 +362,7 @@ function Buildings({ buildings }: { buildings: Awaited<ReturnType<typeof dashboa
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="truncate text-base font-semibold">
-                    <Link href={`/admin/buildings/${building.buildingId}`} className="text-heading no-underline hover:text-heading hover:underline">
+                    <Link href={`/admin/buildings/${building.buildingId}`} className="inline-flex items-center text-heading pointer-coarse:min-h-11 no-underline hover:text-heading hover:underline">
                       {building.buildingName}
                     </Link>
                   </h3>

@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { TenantHeading } from "@/components/tenants/tenant-heading";
 import { listTenantBills } from "@/services/portal";
 import { formatDate, formatPeriod } from "@/utilities/dates";
-import { currentTenantLease } from "../../current-lease";
+import { currentTenantLease } from "../../../current-lease";
 
 export const metadata: Metadata = { title: "Bills" };
 

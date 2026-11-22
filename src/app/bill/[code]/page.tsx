@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { getEnvironment } from "@/configuration/environment";
 import { getBillCard, type BillCardType } from "@/services/bill-card";
 import { formatAmount } from "@/utilities/money";
@@ -54,25 +55,8 @@ export default async function BillCardPage({ params }: PageProps<"/bill/[code]">
   const appName = getEnvironment().APP_NAME;
   const card = await getBillCard(code);
 
-  if (!card) {
-    return (
-      <Shell>
-        <article className="w-full max-w-[360px] overflow-hidden rounded-[18px] border border-[#E7E5E4] bg-white px-[22px] py-7 text-center">
-          <div className="mx-auto mb-4 w-fit rounded-full ring-1 ring-[#E7E5E4]">
-            <HouseCheck color="#111111" />
-          </div>
-          <h1 className="font-display text-[24px] leading-tight text-[#171717]">This link has expired</h1>
-          <p className="mt-2 text-sm text-[#6B6B72]">Sign in to see your bill.</p>
-          <Link
-            href="/tenants/login"
-            className="mt-5 flex h-[46px] w-full items-center justify-center rounded-xl bg-[#111111] text-[15px] font-semibold text-white no-underline"
-          >
-            Sign in
-          </Link>
-        </article>
-      </Shell>
-    );
-  }
+  // Unknown or expired: not-found.tsx renders the friendly card with an HTTP 404.
+  if (!card) notFound();
 
   const theme = THEMES[card.type];
   const buttonClass = "flex h-[46px] w-full items-center justify-center rounded-xl text-[15px] font-semibold text-white no-underline";

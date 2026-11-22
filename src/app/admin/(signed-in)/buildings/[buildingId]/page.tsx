@@ -87,7 +87,7 @@ export default async function BuildingPage({ params, searchParams }: PageProps<"
             href={option === "all" ? `/admin/buildings/${building.id}` : `/admin/buildings/${building.id}?status=${option}`}
             aria-current={filter === option ? "page" : undefined}
             className={cn(
-              "rounded-full border bg-card px-3 py-1 text-sm whitespace-nowrap text-foreground no-underline",
+              "inline-flex min-h-8 items-center rounded-full border bg-card px-3.5 text-sm pointer-coarse:min-h-11 whitespace-nowrap text-foreground no-underline",
               filter === option && "border-brand bg-brand-surface text-brand",
             )}
           >

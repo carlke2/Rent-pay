@@ -144,9 +144,13 @@
 .eye:focus-visible { outline: 2px solid #111111; outline-offset: -2px; }
 
 .row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 16px; font-size: 14px; }
-.checkboxLabel { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; cursor: pointer; color: #171717; }
-.checkbox { width: 16px; height: 16px; accent-color: #111111; }
-.link { color: #171717; font-weight: 500; text-decoration: none; }
+.checkboxLabel { display: inline-flex; align-items: center; gap: 10px; min-height: 36px; cursor: pointer; color: #171717; }
+.checkbox { width: 20px; height: 20px; accent-color: #111111; }
+.link { display: inline-flex; align-items: center; min-height: 36px; color: #171717; font-weight: 500; text-decoration: none; }
+/* 44 px tap targets on touch screens only; desktop stays compact. */
+@media (pointer: coarse) {
+  .checkboxLabel, .link { min-height: 44px; }
+}
 .link:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* Buttons */
@@ -263,3 +267,17 @@
   .primary:hover { transform: none; }
   .spinner { animation-duration: 2s; }
 }
+
+/* Sandbox-only "Test sign-in" shortcut: always visibly labelled */
+.testBadge {
+  display: inline-flex; align-self: center; align-items: center; gap: 6px; margin: 0;
+  padding: 6px 12px; border-radius: 999px; background: #fef3c7; border: 1px solid #f59e0b;
+  color: #92400e; font-size: 13px; font-weight: 600;
+}
+.testLink {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;
+  border: 1px dashed #d97706; border-radius: 12px; background: rgba(254, 243, 199, 0.6);
+  font: inherit; font-size: 14px; font-weight: 600; color: #92400e; cursor: pointer;
+}
+.testLink:hover { background: #fef3c7; }
+.fieldError { margin: 4px 0 0; font-size: 13px; color: #b91c1c; }

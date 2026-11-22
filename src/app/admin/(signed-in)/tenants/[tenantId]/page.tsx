@@ -123,7 +123,7 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
             <Link
               key={item.leaseId}
               href={`/admin/tenants/${tenant.id}?lease=${item.leaseId}`}
-              className={cn("rounded-full border bg-card px-3 py-1 text-sm whitespace-nowrap text-foreground no-underline", item.leaseId === lease?.leaseId && "border-brand bg-brand-surface text-brand")}
+              className={cn("inline-flex min-h-8 items-center rounded-full border bg-card px-3.5 text-sm pointer-coarse:min-h-11 whitespace-nowrap text-foreground no-underline", item.leaseId === lease?.leaseId && "border-brand bg-brand-surface text-brand")}
             >
               {item.unitCode} · {item.status === "ended" ? "moved out" : item.status}
             </Link>
