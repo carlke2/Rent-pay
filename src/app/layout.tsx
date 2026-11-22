@@ -41,10 +41,6 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: appName, template: `%s · ${appName}` },
     description: DESCRIPTION,
     robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
-    icons: {
-      icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
-      apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
-    },
     appleWebApp: { capable: true, title: appName, statusBarStyle: "black-translucent" },
     formatDetection: { telephone: false, email: false, address: false },
     openGraph: { type: "website", siteName: appName, title: appName, description: DESCRIPTION, images: [image] },
