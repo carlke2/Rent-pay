@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Logo } from "@/components/shared/logo";
 import { SignInPromo, type SignInPromoMessage } from "./sign-in-promo";
 import styles from "./sign-in.module.css";
 
@@ -17,6 +18,9 @@ export function SignInLayout({
       </div>
       <div className={styles.layout}>
         <div className={styles.promoArea}>
+          <div className={styles.promoLogo}>
+            <Logo variant="dark" kind="full" height={28} priority />
+          </div>
           <SignInPromo messages={messages} />
         </div>
         <div className={styles.panel}>

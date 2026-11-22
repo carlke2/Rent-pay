@@ -6,23 +6,8 @@ import { ArrowLeft, CircleAlert, FlaskConical, KeyRound, Loader2, LockKeyhole, P
 import { tenantLogin, type TenantLoginState } from "@/app/tenants/login/actions";
 import { CodeInput } from "@/components/shared/code-input";
 import { ResendCountdown } from "@/components/shared/resend-countdown";
+import { Logo } from "@/components/shared/logo";
 import styles from "@/components/shared/sign-in/sign-in.module.css";
-
-function Logo({ appName }: { appName: string }) {
-  return (
-    <div className={styles.logoRow}>
-      <span className={styles.logo}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M3.5 10.5 12 4l8.5 6.5" />
-          <path d="M5.5 9v10.5h13V9" />
-          <path d="m9 14.2 2.2 2.2 4-4.4" />
-        </svg>
-        <span className={styles.logoDivider} aria-hidden="true" />
-        <span className={styles.logoText}>{appName}</span>
-      </span>
-    </div>
-  );
-}
 
 function Message({ state }: { state: TenantLoginState }) {
   if (state.error) {
@@ -80,7 +65,9 @@ export function TenantLoginForm({
     return (
       <form onSubmit={onSubmit} className={styles.form} key="lease" noValidate>
         <input type="hidden" name="intent" value="choose" />
-        <Logo appName={appName} />
+        <div className={styles.logoRow}>
+        <Logo variant="light" kind="full" height={36} priority />
+      </div>
         <div className={styles.headingBlock}>
           <h1 className={styles.heading}>Choose your unit</h1>
           <p className={styles.subheading}>You rent more than one unit. Pick the one to open.</p>
@@ -106,7 +93,9 @@ export function TenantLoginForm({
         <button type="submit" name="intent" value="restart" formNoValidate className={styles.back}>
           <ArrowLeft width={16} height={16} aria-hidden="true" /> Back
         </button>
-        <Logo appName={appName} />
+        <div className={styles.logoRow}>
+        <Logo variant="light" kind="full" height={36} priority />
+      </div>
         <div className={styles.headingBlock}>
           <h1 className={styles.heading}>Enter your code</h1>
           <p className={styles.subheading}>
@@ -141,7 +130,9 @@ export function TenantLoginForm({
     return (
       <form onSubmit={onSubmit} className={styles.form} key="unit" noValidate>
         <input type="hidden" name="intent" value="unit" />
-        <Logo appName={appName} />
+        <div className={styles.logoRow}>
+        <Logo variant="light" kind="full" height={36} priority />
+      </div>
         <p className={styles.testBadge} role="note">
           <FlaskConical width={16} height={16} aria-hidden="true" /> Test sign-in · sandbox only
         </p>
@@ -178,7 +169,9 @@ export function TenantLoginForm({
   return (
     <form onSubmit={onSubmit} className={styles.form} key="phone" noValidate>
       <input type="hidden" name="intent" value="request" />
-      <Logo appName={appName} />
+      <div className={styles.logoRow}>
+        <Logo variant="light" kind="full" height={36} priority />
+      </div>
       <div className={styles.headingBlock}>
         <h1 className={styles.heading}>
           Welcome to

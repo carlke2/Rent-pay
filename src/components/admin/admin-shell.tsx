@@ -26,7 +26,7 @@ import {
 import { signOutLandlord } from "@/app/admin/actions/session";
 import type { AttentionItem } from "@/services/reports";
 import { cn } from "@/utilities/class-names";
-import { LogoMark } from "../shared/logo";
+import { ThemedLogo } from "../shared/logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -184,6 +184,11 @@ export function AdminShell(props: AdminShellProps) {
                 <Menu className="size-5" aria-hidden />
               </button>
             }
+            mobileLogo={
+              <Link href="/admin" className="grid size-11 shrink-0 place-items-center lg:hidden" aria-label={`${props.appName} home`}>
+                <ThemedLogo kind="mark" height={28} priority />
+              </Link>
+            }
           />
           <main className="mx-auto w-full max-w-[1400px] px-[max(1rem,env(safe-area-inset-left))] pt-6 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 print:max-w-none print:p-0">{props.children}</main>
         </div>
@@ -213,20 +218,29 @@ function SidebarContent({
     <div className="flex h-full min-h-0 flex-col">
       <div className={cn("flex h-[72px] shrink-0 items-center gap-2", rail ? "justify-center px-2" : "justify-between px-4")}>
         {rail ? null : (
-          <Link href="/admin" className="flex min-w-0 items-center gap-2.5 text-heading no-underline hover:text-heading">
-            <LogoMark shape="tile" className="size-8" />
-            <span className="truncate text-lg font-bold tracking-tight">{appName}</span>
+          <Link href="/admin" className="flex min-w-0 items-center" aria-label={`${appName} home`}>
+            <ThemedLogo kind="full" height={28} priority />
           </Link>
         )}
         {onToggle ? (
           <button
             type="button"
             onClick={onToggle}
-            className="grid size-11 shrink-0 place-items-center rounded-lg text-text-secondary hover:bg-surface-raised hover:text-heading"
+            className="group grid size-11 shrink-0 place-items-center rounded-lg text-text-secondary hover:bg-surface-raised hover:text-heading"
             aria-label={rail ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!rail}
           >
-            {rail ? <PanelLeftOpen className="size-[18px]" aria-hidden /> : <PanelLeftClose className="size-[18px]" aria-hidden />}
+            {rail ? (
+              <>
+                {/* Collapsed: the mark, swapping to the expand icon on hover or keyboard focus. */}
+                <span className="group-hover:hidden group-focus-visible:hidden" aria-hidden>
+                  <ThemedLogo kind="mark" height={28} priority />
+                </span>
+                <PanelLeftOpen className="hidden size-[18px] group-hover:block group-focus-visible:block" aria-hidden />
+              </>
+            ) : (
+              <PanelLeftClose className="size-[18px]" aria-hidden />
+            )}
           </button>
         ) : null}
       </div>

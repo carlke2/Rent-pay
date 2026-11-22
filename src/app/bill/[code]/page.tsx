@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Logo } from "@/components/shared/logo";
 import { getEnvironment } from "@/configuration/environment";
 import { getBillCard, type BillCardType } from "@/services/bill-card";
 import { formatAmount } from "@/utilities/money";
@@ -29,18 +30,6 @@ const THEMES: Record<BillCardType, { band: string; accent: string; button: strin
   paid: { band: "#14532D", accent: "#4ADE80", button: "#14532D" },
 };
 
-function HouseCheck({ color }: { color: string }) {
-  return (
-    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white" aria-hidden>
-      <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" className="size-[60%]">
-        <path d="M3.5 10.5 12 4l8.5 6.5" />
-        <path d="M5.5 9v10.5h13V9" />
-        <path d="m9 14.2 2.2 2.2 4-4.4" />
-      </svg>
-    </span>
-  );
-}
-
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="flex min-h-dvh items-start justify-center bg-[#F5F5F4] px-[max(1rem,env(safe-area-inset-left))] pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] font-sans text-[#171717] sm:items-center">
@@ -52,7 +41,6 @@ function Shell({ children }: { children: React.ReactNode }) {
 /** Public message card opened from SMS links: the lease's current bill, reminder, overdue notice or payment. */
 export default async function BillCardPage({ params }: PageProps<"/bill/[code]">) {
   const { code } = await params;
-  const appName = getEnvironment().APP_NAME;
   const card = await getBillCard(code);
 
   // Unknown or expired: not-found.tsx renders the friendly card with an HTTP 404.
@@ -66,9 +54,8 @@ export default async function BillCardPage({ params }: PageProps<"/bill/[code]">
       <article className="w-full max-w-[360px] overflow-hidden rounded-[18px] border border-[#E7E5E4] bg-white">
         <header className="px-[22px] py-5 text-white" style={{ backgroundColor: theme.band }}>
           <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <HouseCheck color={theme.band} />
-              <span className="truncate font-display text-[18px] italic leading-none">{appName}</span>
+            <div className="flex min-w-0 items-center">
+              <Logo variant="dark" kind="full" height={28} priority />
             </div>
             <span className="shrink-0 rounded-full bg-white/[0.16] px-2.5 py-1 text-[11px] font-semibold tracking-wide">{card.pill}</span>
           </div>

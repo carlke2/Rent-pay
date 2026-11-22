@@ -23,15 +23,19 @@ export function AdminTopBar({
   currentPeriod,
   attention,
   menuButton,
+  mobileLogo,
 }: {
   title: string;
   currentPeriod: string;
   attention: { items: AttentionItem[]; total: number };
   menuButton: React.ReactNode;
+  /** Mobile only (lg:hidden): the brand mark beside the menu button. */
+  mobileLogo?: React.ReactNode;
 }) {
   return (
     <header className="sticky top-0 z-30 flex h-[calc(72px+env(safe-area-inset-top))] items-center gap-2 border-b border-sidebar-border bg-background pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:gap-3 sm:px-6 lg:px-8 print:hidden">
       {menuButton}
+      {mobileLogo}
       <p className="hidden min-w-0 shrink truncate font-display text-2xl font-normal tracking-[-0.01em] text-heading sm:block">{title}</p>
       <div className="flex min-w-0 flex-1 justify-end md:justify-center md:px-4">
         <CommandSearch />

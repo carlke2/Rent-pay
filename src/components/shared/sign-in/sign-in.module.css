@@ -21,10 +21,13 @@
 
 /* Promo card, bottom-left */
 .promoArea {
+  position: relative;
   display: flex;
   align-items: flex-end;
   padding: 0 0 clamp(32px, 6dvh, 56px) clamp(32px, 4vw, 64px);
 }
+/* Logo over the photo, top-left (same inset as the promo card) */
+.promoLogo { position: absolute; top: clamp(32px, 6dvh, 56px); left: clamp(32px, 4vw, 64px); }
 .promo {
   width: min(460px, 100%);
   padding: 28px 36px 26px;
@@ -85,12 +88,6 @@
 
 /* Logo */
 .logoRow { display: flex; justify-content: center; }
-.logo {
-  display: inline-flex; align-items: center; gap: 12px;
-  padding: clamp(6px, 0.9dvh, 8px) 18px; border-radius: 999px; background: #111111; color: #ffffff;
-}
-.logoDivider { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.4); }
-.logoText { font-family: var(--font-display), Georgia, serif; font-style: italic; font-weight: 400; font-size: 19px; line-height: 1; letter-spacing: -0.01em; }
 
 /* Headings */
 .headingBlock { text-align: center; }
@@ -249,6 +246,7 @@
 @media (max-width: 1100px) {
   .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 460px); }
   .promoArea { padding: 0 0 40px 32px; }
+  .promoLogo { top: 40px; left: 32px; }
   .promoTitle { font-size: 26px; }
   .panel { padding: 24px 32px 24px 16px; }
   .panelInner { padding: 32px 36px 24px; }

@@ -21,7 +21,7 @@ import { signOutTenant } from "@/app/tenants/actions/session";
 import { NavLink } from "@/components/shared/nav-link";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { cn } from "@/utilities/class-names";
-import { LogoMark } from "../shared/logo";
+import { ThemedLogo } from "../shared/logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -105,9 +105,8 @@ export function TenantShell({ appName, tenantName, unitCode, buildingName, canPa
     <div className="theme-tenant min-h-dvh bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r pt-[env(safe-area-inset-top)] border-sidebar-border bg-sidebar lg:flex print:hidden" aria-label="Sidebar">
         <div className="flex h-[72px] shrink-0 items-center px-4">
-          <Link href="/tenants" className="flex min-w-0 items-center gap-2.5 text-heading no-underline hover:text-heading">
-            <LogoMark shape="tile" className="size-8" />
-            <span className="truncate text-lg font-bold tracking-tight">{appName}</span>
+          <Link href="/tenants" className="flex min-w-0 items-center" aria-label={`${appName} home`}>
+            <ThemedLogo kind="full" height={26} priority />
           </Link>
         </div>
         <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
@@ -145,11 +144,12 @@ export function TenantShell({ appName, tenantName, unitCode, buildingName, canPa
       </aside>
 
       <div className="lg:pl-[248px]">
-        <header className="sticky top-0 z-30 flex h-[calc(4rem+env(safe-area-inset-top))] items-center gap-3 border-b border-sidebar-border bg-background pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:px-6 lg:h-[calc(72px+env(safe-area-inset-top))] lg:px-8 print:hidden">
-          <Link href="/tenants" className="-ml-1.5 grid size-11 shrink-0 place-items-center lg:hidden" aria-label={`${appName} home`}>
-            <LogoMark shape="tile" className="size-8" />
+        <header className="sticky top-0 z-30 flex h-[calc(4rem+env(safe-area-inset-top))] items-center gap-2 sm:gap-3 border-b border-sidebar-border bg-background pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:px-6 lg:h-[calc(72px+env(safe-area-inset-top))] lg:px-8 print:hidden">
+          <Link href="/tenants" className="flex min-h-11 shrink-0 items-center lg:hidden" aria-label={`${appName} home`}>
+            <ThemedLogo kind="full" height={26} priority />
           </Link>
-          <p className="min-w-0 flex-1 truncate font-display text-xl font-normal tracking-[-0.01em] text-heading lg:text-2xl">{title}</p>
+          {/* Below md the full logo leaves no room for the title (the page heading says it); keep the space so nothing shifts. */}
+          <p className="invisible min-w-0 flex-1 truncate font-display text-xl font-normal tracking-[-0.01em] text-heading md:visible lg:text-2xl">{title}</p>
           {unitCode ? (
             <span className="numbers hidden shrink-0 items-center rounded-full border border-border-strong px-3 py-1 text-sm font-medium text-heading sm:inline-flex">
               {unitCode}

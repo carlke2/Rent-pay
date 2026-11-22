@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
-import { LogoMark } from "@/components/shared/logo";
+import { Logo } from "@/components/shared/logo";
 import { ReceiptActions } from "@/components/shared/receipt-actions";
 import { getEnvironment } from "@/configuration/environment";
 import { getReceiptByToken } from "@/services/payments";
@@ -167,10 +167,8 @@ export default async function ReceiptPage({ params }: PageProps<"/receipts/[toke
         ) : null}
 
         <header className="flex items-center justify-between gap-4 bg-[#111111] px-4 py-2.5 text-white">
-          <div className="flex min-w-0 items-center gap-3">
-            <LogoMark className="size-7 shadow-none ring-1 ring-white/20" />
-            <span className="h-5 w-px shrink-0 bg-white/25" aria-hidden />
-            <span className="truncate font-display text-[18px] italic leading-none">{env.APP_NAME}</span>
+          <div className="flex min-w-0 items-center">
+            <Logo variant="dark" kind="full" height={28} priority />
           </div>
           <div className="shrink-0 text-right">
             <p className="text-[11px] text-[#C9C9CF]">Payment receipt</p>

@@ -6,23 +6,8 @@ import { ArrowLeft, CircleAlert, Eye, EyeOff, Loader2, Lock, LockKeyhole, Mail, 
 import { signInLandlord, type LandlordLoginState } from "@/app/admin/login/actions";
 import { CodeInput } from "@/components/shared/code-input";
 import { ResendCountdown } from "@/components/shared/resend-countdown";
+import { Logo } from "@/components/shared/logo";
 import styles from "@/components/shared/sign-in/sign-in.module.css";
-
-function Logo({ appName }: { appName: string }) {
-  return (
-    <div className={styles.logoRow}>
-      <span className={styles.logo}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M3.5 10.5 12 4l8.5 6.5" />
-          <path d="M5.5 9v10.5h13V9" />
-          <path d="m9 14.2 2.2 2.2 4-4.4" />
-        </svg>
-        <span className={styles.logoDivider} aria-hidden="true" />
-        <span className={styles.logoText}>{appName}</span>
-      </span>
-    </div>
-  );
-}
 
 function Message({ state }: { state: LandlordLoginState }) {
   if (state.error) {
@@ -69,7 +54,9 @@ export function LandlordLoginForm({ next, appName, supportEmail }: { next?: stri
         <button type="submit" name="intent" value="restart" formNoValidate className={styles.back}>
           <ArrowLeft width={16} height={16} aria-hidden="true" /> Back
         </button>
-        <Logo appName={appName} />
+        <div className={styles.logoRow}>
+        <Logo variant="light" kind="full" height={36} priority />
+      </div>
         <div className={styles.headingBlock}>
           <h1 className={styles.heading}>Check your phone</h1>
           <p className={styles.subheading}>
@@ -104,7 +91,9 @@ export function LandlordLoginForm({ next, appName, supportEmail }: { next?: stri
     <form onSubmit={onSubmit} className={styles.form} key="password" noValidate>
       <input type="hidden" name="intent" value="password" />
       <input type="hidden" name="next" value={state.next ?? ""} />
-      <Logo appName={appName} />
+      <div className={styles.logoRow}>
+        <Logo variant="light" kind="full" height={36} priority />
+      </div>
       <div className={styles.headingBlock}>
         <h1 className={styles.heading}>
           Welcome back to
