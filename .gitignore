@@ -2,9 +2,9 @@
 node_modules/
 
 # next.js
-.next/
-out/
-next-env.d.ts
+/.next/
+/out/
+/next-env.d.ts
 *.tsbuildinfo
 
 # environment (never commit secrets)
@@ -13,11 +13,11 @@ next-env.d.ts
 *.pem
 *.key
 
-# local storage adapter
-storage/
+# local storage adapter (STORAGE_LOCAL_DIRECTORY=./storage); root only, so src/adapters/storage/ stays tracked
+/storage/
 
 # platforms
-.vercel/
+/.vercel/
 
 # logs
 npm-debug.log*
