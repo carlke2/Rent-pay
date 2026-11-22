@@ -35,6 +35,8 @@ const nextConfig: NextConfig = {
   // next/image serves AVIF where supported, else WebP (the sign-in photo is a JPEG on disk).
   images: { formats: ["image/avif", "image/webp"], deviceSizes: [360, 390, 640, 768, 1024, 1280, 1440, 1920] },
   devIndicators: false,
+  // Stops next dev from generating AGENTS.md; this repo keeps no agent rule files.
+  agentRules: false,
   // Payment slip photos can be up to 5 MB.
   experimental: { serverActions: { bodySizeLimit: "6mb" } },
   async headers() {
