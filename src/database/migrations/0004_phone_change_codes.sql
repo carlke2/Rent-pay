@@ -1,0 +1,1 @@
+ALTER TYPE "public"."login_code_purpose" ADD VALUE 'phone_change';

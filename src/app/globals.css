@@ -1,0 +1,292 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* `dark:` follows the theme toggle (the .dark class on <html>), and only inside the landlord app and tenant portal. */
+@custom-variant dark (&:where(:root.dark:has(.theme-admin, .theme-tenant) *));
+
+/*
+ * Design tokens: change colours here, in one place. Light theme only.
+ * Navy headings, near-black primary buttons, blue links, neutral greys for everything else.
+ */
+:root {
+  --radius: 0.625rem;
+
+  --heading: #1e2a4a;
+  --text: #101828;
+  --text-secondary: #344054;
+  --text-muted: #667085;
+  --surface-muted: #f2f4f7;
+  --input-addon: #f9fafb;
+  --link: #2952cc;
+  --link-hover: #1d3c99;
+  --illustration-sky: #1e2a4a;
+  --illustration-building: #2c3d68;
+  --illustration-window-lit: #f5b657;
+
+  /* "brand" = the link colour, used for links and selected states. */
+  --brand: var(--link);
+  --brand-hover: var(--link-hover);
+  --brand-foreground: #ffffff;
+  --brand-surface: #edf1fb;
+
+  --background: #f8f9fb;
+  --foreground: var(--text);
+  --card: #ffffff;
+  --card-foreground: var(--text);
+  --popover: #ffffff;
+  --popover-foreground: var(--text);
+  --primary: #18181b;
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-muted);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-muted);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--surface-muted);
+  --accent-foreground: var(--text);
+  --destructive: #d92d20;
+  --border: #d0d5dd;
+  --input: #d0d5dd;
+  --ring: var(--heading);
+
+  /* Status colours: always shown with a text label (StatusBadge). */
+  --status-paid: #047857;
+  --status-paid-surface: #ecfdf5;
+  --status-partial: #b45309;
+  --status-partial-surface: #fffbeb;
+  --status-unpaid: #334155;
+  --status-unpaid-surface: #f1f5f9;
+  --status-overdue: #b91c1c;
+  --status-overdue-surface: #fef2f2;
+  --status-vacant: #6b7280;
+  --status-vacant-surface: #fafafa;
+  --status-notice: #6d28d9;
+  --status-notice-surface: #f5f3ff;
+  --credit: #047857;
+
+  /* Tokens the admin dark theme uses; light values for the rest of the app. */
+  --surface-raised: var(--surface-muted);
+  --surface-sunken: var(--surface-muted);
+  --border-strong: var(--border);
+  --secondary-border: transparent;
+  --input-background: var(--card);
+  --placeholder: var(--text-muted);
+  --sidebar: var(--card);
+  --sidebar-border: var(--border);
+  --nav-active-ring: var(--border);
+  --chart-collected: var(--heading);
+  --chart-expected: var(--text-muted);
+  --chart-grid: var(--border);
+  --status-paid-border: color-mix(in srgb, var(--status-paid) 25%, transparent);
+  --status-partial-border: color-mix(in srgb, var(--status-partial) 25%, transparent);
+  --status-unpaid-border: color-mix(in srgb, var(--status-unpaid) 20%, transparent);
+  --status-overdue-border: color-mix(in srgb, var(--status-overdue) 25%, transparent);
+  --status-notice-border: color-mix(in srgb, var(--status-notice) 25%, transparent);
+  --status-vacant-border: color-mix(in srgb, var(--status-vacant) 50%, transparent);
+  --status-info: var(--brand);
+  --status-info-surface: var(--brand-surface);
+  --status-info-border: color-mix(in srgb, var(--brand) 20%, transparent);
+}
+
+/*
+ * Landlord app and tenant portal dark theme: true black + graphite. Applies when <html> has .dark (the default, set
+ * before paint by the script in the root layout; the theme toggle flips it) and the page is inside .theme-admin /
+ * .theme-tenant; applied to :root too (via :has) so dialogs, menus and popovers rendered in portals get the same tokens.
+ * Without .dark those apps use the light tokens above. Screen only: printouts stay light.
+ */
+@media screen {
+  :root.dark:has(.theme-admin, .theme-tenant),
+  .dark .theme-admin,
+  .dark .theme-tenant {
+    color-scheme: dark;
+
+    --heading: #ffffff;
+    --text: #f4f4f5;
+    --text-secondary: #a1a1aa;
+    --text-muted: #8b8b93;
+    --placeholder: #71717a;
+    --surface-muted: #1c1c1f;
+    --surface-raised: #1c1c1f;
+    --surface-sunken: #0b0b0c;
+    --input-addon: #1c1c1f;
+    --input-background: #141416;
+    --link: #93c5fd;
+    --link-hover: #bfdbfe;
+    --brand-foreground: #000000;
+    --brand-surface: #0f1f3d;
+
+    --background: #000000;
+    --sidebar: #000000;
+    --sidebar-border: #1f1f23;
+    --nav-active-ring: #2a2a2f;
+    --card: #141416;
+    --popover: #1c1c1f;
+    --primary: #ffffff;
+    --primary-foreground: #000000;
+    --secondary: #1c1c1f;
+    --secondary-foreground: #f4f4f5;
+    --muted: #1c1c1f;
+    --muted-foreground: #8b8b93;
+    --accent: #1c1c1f;
+    --accent-foreground: #f4f4f5;
+    --destructive: #dc4b4b;
+    --border: #26262b;
+    --border-strong: #3a3a40;
+    --secondary-border: #2e2e34;
+    --input: #2a2a2f;
+    --ring: #ffffff;
+
+    --chart-collected: #ffffff;
+    --chart-expected: #71717a;
+    --chart-grid: #26262b;
+
+    --status-paid: #86efac;
+    --status-paid-surface: #0e2e1c;
+    --status-paid-border: #22a35a;
+    --status-partial: #fde047;
+    --status-partial-surface: #2e2507;
+    --status-partial-border: #ca8a04;
+    --status-unpaid: #d4d4d8;
+    --status-unpaid-surface: #1c1c1f;
+    --status-unpaid-border: #52525b;
+    --status-overdue: #fca5a5;
+    --status-overdue-surface: #3b1414;
+    --status-overdue-border: #dc4b4b;
+    --status-notice: #c4b5fd;
+    --status-notice-surface: #221b3d;
+    --status-notice-border: #8b7be8;
+    --status-vacant: #8b8b93;
+    --status-vacant-surface: transparent;
+    --status-vacant-border: #71717a;
+    --status-info: #93c5fd;
+    --status-info-surface: #0f1f3d;
+    --status-info-border: #1e3a6e;
+    --credit: #86efac;
+  }
+
+  /* Focus: 2px white ring with a 2px black gap on every focusable element. Unlayered so it beats component utilities. */
+  .dark .theme-admin :focus-visible,
+  .dark .theme-tenant :focus-visible,
+  :root.dark:has(.theme-admin, .theme-tenant) [data-radix-popper-content-wrapper] :focus-visible,
+  :root.dark:has(.theme-admin, .theme-tenant) [role="dialog"] :focus-visible {
+    outline: 2px solid #ffffff !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 2px #000000 !important;
+  }
+  :root:has(.theme-admin, .theme-tenant) input::placeholder,
+  :root:has(.theme-admin, .theme-tenant) textarea::placeholder {
+    color: var(--placeholder);
+  }
+}
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display), Georgia, serif;
+  --color-heading: var(--heading);
+  --color-text-secondary: var(--text-secondary);
+  --color-surface-muted: var(--surface-muted);
+  --color-input-addon: var(--input-addon);
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
+  --color-illustration-sky: var(--illustration-sky);
+  --color-illustration-building: var(--illustration-building);
+  --color-illustration-window-lit: var(--illustration-window-lit);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-surface: var(--brand-surface);
+  --color-credit: var(--credit);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border-strong: var(--border-strong);
+  --color-secondary-border: var(--secondary-border);
+  --color-input-background: var(--input-background);
+  --color-placeholder: var(--placeholder);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-nav-active-ring: var(--nav-active-ring);
+  --color-chart-collected: var(--chart-collected);
+  --color-chart-expected: var(--chart-expected);
+  --color-chart-grid: var(--chart-grid);
+  --color-status-paid-border: var(--status-paid-border);
+  --color-status-partial-border: var(--status-partial-border);
+  --color-status-unpaid-border: var(--status-unpaid-border);
+  --color-status-overdue-border: var(--status-overdue-border);
+  --color-status-notice-border: var(--status-notice-border);
+  --color-status-vacant-border: var(--status-vacant-border);
+  --color-status-info: var(--status-info);
+  --color-status-info-surface: var(--status-info-surface);
+  --color-status-info-border: var(--status-info-border);
+  --color-status-paid: var(--status-paid);
+  --color-status-paid-surface: var(--status-paid-surface);
+  --color-status-partial: var(--status-partial);
+  --color-status-partial-surface: var(--status-partial-surface);
+  --color-status-unpaid: var(--status-unpaid);
+  --color-status-unpaid-surface: var(--status-unpaid-surface);
+  --color-status-overdue: var(--status-overdue);
+  --color-status-overdue-surface: var(--status-overdue-surface);
+  --color-status-vacant: var(--status-vacant);
+  --color-status-vacant-surface: var(--status-vacant-surface);
+  --color-status-notice: var(--status-notice);
+  --color-status-notice-surface: var(--status-notice-surface);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: light;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+  a {
+    @apply text-link hover:text-link-hover;
+  }
+  h1 {
+    @apply text-heading;
+  }
+  .numbers {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  /* No sideways page scroll on small screens: only table wrappers scroll. */
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  body {
+    background: #fff;
+  }
+}
+

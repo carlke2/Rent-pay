@@ -1,0 +1,1 @@
+ALTER TABLE "payments" ADD COLUMN "paid_by_other" boolean DEFAULT false NOT NULL;

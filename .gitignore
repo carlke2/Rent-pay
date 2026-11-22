@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# environment (never commit secrets)
+.env
+.env*
+*.pem
+*.key
+
+# local storage adapter
+storage/
+
+# platforms
+.vercel/
+
+# logs
+npm-debug.log*
+
+# operating systems
+.DS_Store
+Thumbs.db
