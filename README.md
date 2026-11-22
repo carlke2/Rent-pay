@@ -2,7 +2,7 @@
 
 Rent collection and management for Kenyan landlords. Tenants pay rent with M-Pesa (one-tap STK push from the portal, or Paybill from the M-Pesa menu). Each payment is matched to the right unit, posted to a ledger and receipted by SMS within seconds. The landlord (admin) sees every building, unit and shilling on one dashboard.
 
-Live address: https://rentpay.millenium.co.ke
+Live address: https://rent-pay-six.vercel.app (a custom domain can be added later, see [Custom domain](#custom-domain-later))
 
 ---
 
@@ -138,7 +138,7 @@ All settings live in one `.env` file (never committed). `src/configuration/envir
 ```dotenv
 # App
 APP_NAME=RentPay
-APP_URL=https://rentpay.millenium.co.ke     # public HTTPS address, no trailing slash (a tunnel URL when testing locally)
+APP_URL=https://rent-pay-six.vercel.app     # public HTTPS address, no trailing slash (a tunnel URL when testing locally)
 SESSION_SECRET=                              # 32+ random characters
 CRON_SECRET=                                 # 16+ random characters; protects /api/jobs and /api/sandbox (Vercel Cron sends it)
 SUPPORT_EMAIL=                               # optional
@@ -267,12 +267,16 @@ Vercel Cron sends `Authorization: Bearer $CRON_SECRET` automatically when `CRON_
 3. Set the function region next to the Supabase database.
 4. Use a **separate, clean Supabase project for production** with daily backups. Run the migrations there; don't seed sample data.
 
-### Custom domain: rentpay.millenium.co.ke
+### Custom domain (later)
 
-1. Vercel → **Settings → Domains** → add `rentpay.millenium.co.ke`.
-2. At the DNS host for millenium.co.ke, add a `CNAME` record: name `rentpay`, value = the target Vercel shows. On Cloudflare, use "DNS only".
-3. Wait for "Valid Configuration" (HTTPS is issued automatically).
-4. Set `APP_URL=https://rentpay.millenium.co.ke`, redeploy, and press **Register URLs** again.
+The app runs on `https://rent-pay-six.vercel.app` until a custom domain exists. `APP_URL` must always be an address that already works: SMS links, receipts and M-Pesa callbacks are built from it, so never set it to a domain that hasn't been created yet.
+
+When the domain is ready (for example a `rentpay` subdomain):
+
+1. Create the subdomain, then Vercel → **Settings → Domains** → add it.
+2. At its DNS host, add the `CNAME` record Vercel shows. On Cloudflare, use "DNS only".
+3. Wait for "Valid Configuration" (HTTPS is issued automatically) and open the new address to check it works.
+4. Only then set `APP_URL` to the new address, redeploy, and press **Register URLs** again.
 
 ### Google Cloud (later)
 
