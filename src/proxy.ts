@@ -11,11 +11,17 @@ const AREAS: Area[] = [
 const within = (pathname: string, base: string) => pathname === base || pathname.startsWith(`${base}/`);
 
 /**
- * Guards the landlord app and the tenant portal. Never runs for /api (see matcher),
- * so M-Pesa callbacks and job routes are never redirected.
+ * Guards the landlord app and the tenant portal, and hides the sandbox API outside the sandbox. It runs for no
+ * other /api route (see matcher), so M-Pesa callbacks and job routes are never redirected.
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  // /api/sandbox/* is 404 for every method unless MPESA_ENV=sandbox (unset means sandbox, as in the app's config).
+  // The route guard does this too, but only for methods a route defines; others would get 405 and reveal the route.
+  if (within(pathname, "/api/sandbox")) {
+    const mode = process.env.MPESA_ENV?.trim() || "sandbox";
+    return mode === "sandbox" ? NextResponse.next() : NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const area = AREAS.find((candidate) => within(pathname, candidate.prefix));
   if (!area) return NextResponse.next();
 
@@ -35,5 +41,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*", "/tenants", "/tenants/:path*"],
+  matcher: ["/admin", "/admin/:path*", "/tenants", "/tenants/:path*", "/api/sandbox/:path*"],
 };
