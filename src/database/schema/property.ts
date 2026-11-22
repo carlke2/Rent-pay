@@ -14,7 +14,7 @@ export const landlord = pgTable("landlord", {
   /** Require an SMS code after the password. */
   twoFactorEnabled: boolean("two_factor_enabled").notNull().default(true),
   createdAt: createdAt(),
-});
+}).enableRLS();
 
 export const buildings = pgTable("buildings", {
   id: id(),
@@ -22,7 +22,7 @@ export const buildings = pgTable("buildings", {
   location: text("location"),
   codePrefix: text("code_prefix").notNull().unique(),
   createdAt: createdAt(),
-});
+}).enableRLS();
 
 export const units = pgTable(
   "units",
@@ -49,7 +49,7 @@ export const units = pgTable(
     index("units_building_id_index").on(table.buildingId),
     check("units_amounts_not_negative", sql`${table.rentAmount} >= 0 and ${table.depositAmount} >= 0`),
   ],
-);
+).enableRLS();
 
 export const expenses = pgTable(
   "expenses",
@@ -69,4 +69,4 @@ export const expenses = pgTable(
     index("expenses_building_spent_index").on(table.buildingId, table.spentOn),
     check("expenses_amount_positive", sql`${table.amount} > 0`),
   ],
-);
+).enableRLS();

@@ -17,4 +17,4 @@ export const auditLog = pgTable(
     createdAt: createdAt(),
   },
   (table) => [index("audit_log_entity_index").on(table.entity, table.entityId)],
-);
+).enableRLS();

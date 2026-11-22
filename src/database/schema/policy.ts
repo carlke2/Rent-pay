@@ -20,4 +20,4 @@ export const policies = pgTable(
     createdAt: createdAt(),
   },
   (table) => [index("policies_building_effective_index").on(table.buildingId, table.effectiveFrom)],
-);
+).enableRLS();

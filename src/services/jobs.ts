@@ -5,6 +5,7 @@ import { getEnvironment } from "@/configuration/environment";
 import { isBillingPeriod, isIsoDate, periodOf, todayInNairobi, type IsoDate } from "@/utilities/dates";
 import { applyPenalties, generateInvoices } from "./billing";
 import { sendDailySummary, sendInvoice, sendPenaltyNotice, sendReminders } from "./notifications";
+import { runIntegrityChecks } from "./integrity";
 import { checkPendingStkRequests, processCallback } from "./payments";
 
 const datedPayload = z.object({
@@ -32,6 +33,7 @@ const registry = {
   "apply-penalties": async (payload: unknown) => applyPenalties({ today: datedPayload.parse(payload ?? {}).today }),
   "send-reminders": async (payload: unknown) => sendReminders({ today: datedPayload.parse(payload ?? {}).today }),
   "daily-summary": async (payload: unknown) => sendDailySummary({ today: datedPayload.parse(payload ?? {}).today }),
+  "integrity-checks": async () => runIntegrityChecks(),
   "send-notification": async (payload: unknown) => {
     const { kind, id } = z.object({ kind: z.enum(["invoice", "penalty"]), id: z.uuid() }).parse(payload);
     return kind === "invoice" ? sendInvoice(id) : sendPenaltyNotice(id);

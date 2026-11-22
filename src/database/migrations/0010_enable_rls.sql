@@ -1,0 +1,24 @@
+ALTER TABLE "buildings" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "expenses" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "landlord" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "units" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "leases" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "login_attempts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "login_codes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "pay_links" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "rent_changes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "tenants" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "invoice_lines" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "invoices" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "meter_readings" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "allocations" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "ledger_entries" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "messages" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "payment_callbacks" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "payment_claims" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "payment_requests" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "payments" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "receipts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "policies" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "audit_log" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "import_batches" ENABLE ROW LEVEL SECURITY;

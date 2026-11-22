@@ -45,7 +45,7 @@ export const paymentCallbacks = pgTable(
     createdAt: createdAt(),
   },
   (table) => [index("payment_callbacks_processed_at_index").on(table.processedAt)],
-);
+).enableRLS();
 
 export const payments = pgTable(
   "payments",
@@ -75,7 +75,7 @@ export const payments = pgTable(
     index("payments_match_status_index").on(table.matchStatus),
     check("payments_amount_positive", sql`${table.amount} > 0`),
   ],
-);
+).enableRLS();
 
 export const paymentRequests = pgTable(
   "payment_requests",
@@ -102,7 +102,7 @@ export const paymentRequests = pgTable(
     index("payment_requests_status_index").on(table.status),
     check("payment_requests_amount_positive", sql`${table.amount} > 0`),
   ],
-);
+).enableRLS();
 
 export const paymentClaims = pgTable(
   "payment_claims",
@@ -127,7 +127,7 @@ export const paymentClaims = pgTable(
     index("payment_claims_status_index").on(table.status),
     check("payment_claims_amount_positive", sql`${table.amount} > 0`),
   ],
-);
+).enableRLS();
 
 export const allocations = pgTable(
   "allocations",
@@ -148,7 +148,7 @@ export const allocations = pgTable(
     // Negative rows undo earlier allocations (payment reversals, deposit applied at move-out).
     check("allocations_amount_not_zero", sql`${table.amount} <> 0`),
   ],
-);
+).enableRLS();
 
 /** Append-only: entries are never edited or deleted, only reversed. */
 export const ledgerEntries = pgTable(
@@ -178,7 +178,7 @@ export const ledgerEntries = pgTable(
       sql`${table.debit} >= 0 and ${table.credit} >= 0 and (${table.debit} = 0) <> (${table.credit} = 0)`,
     ),
   ],
-);
+).enableRLS();
 
 export const receipts = pgTable("receipts", {
   id: id(),
@@ -196,7 +196,7 @@ export const receipts = pgTable("receipts", {
   sentAt: timestamp("sent_at", { withTimezone: true }),
   voidedAt: timestamp("voided_at", { withTimezone: true }),
   createdAt: createdAt(),
-});
+}).enableRLS();
 
 export const messages = pgTable(
   "messages",
@@ -220,5 +220,5 @@ export const messages = pgTable(
     // Lets reminders check what was already sent to a lease today.
     index("messages_lease_template_created_index").on(table.leaseId, table.template, table.createdAt),
   ],
-);
+).enableRLS();
 

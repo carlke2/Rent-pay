@@ -20,7 +20,7 @@ export const tenants = pgTable("tenants", {
   portalAccess: boolean("portal_access").notNull().default(true),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   createdAt: createdAt(),
-});
+}).enableRLS();
 
 export const leases = pgTable(
   "leases",
@@ -53,7 +53,7 @@ export const leases = pgTable(
     check("leases_amounts_not_negative", sql`${table.rentAmount} >= 0 and ${table.depositAmount} >= 0`),
     check("leases_end_after_start", sql`${table.endDate} is null or ${table.endDate} >= ${table.startDate}`),
   ],
-);
+).enableRLS();
 
 export const loginCodePurpose = pgEnum("login_code_purpose", ["tenant_login", "landlord_two_factor", "phone_change"]);
 
@@ -70,7 +70,7 @@ export const loginCodes = pgTable(
     createdAt: createdAt(),
   },
   (table) => [index("login_codes_phone_index").on(table.phone, table.purpose, table.createdAt)],
-);
+).enableRLS();
 
 /**
  * Phone-and-unit sign-in attempts, for rate limiting. `key` is "phone:2547…" or "address:<ip>"; rows older than
@@ -85,7 +85,7 @@ export const loginAttempts = pgTable(
     createdAt: createdAt(),
   },
   (table) => [index("login_attempts_key_index").on(table.key, table.createdAt)],
-);
+).enableRLS();
 
 /** Rent changes: billing uses the latest effective_from on or before the period start, else leases.rent_amount. */
 export const rentChanges = pgTable(
@@ -103,7 +103,7 @@ export const rentChanges = pgTable(
     index("rent_changes_lease_effective_index").on(table.leaseId, table.effectiveFrom),
     check("rent_changes_amount_not_negative", sql`${table.amount} >= 0`),
   ],
-);
+).enableRLS();
 
 /** One-tap links sent by SMS that sign a tenant in to one lease. Only the token's hash is stored. */
 export const payLinks = pgTable(
@@ -121,4 +121,4 @@ export const payLinks = pgTable(
     createdAt: createdAt(),
   },
   (table) => [index("pay_links_lease_id_index").on(table.leaseId)],
-);
+).enableRLS();

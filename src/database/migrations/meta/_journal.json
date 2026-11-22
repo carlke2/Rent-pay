@@ -71,6 +71,13 @@
       "when": 1795163000000,
       "tag": "0009_opening_balance_import",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795352446275,
+      "tag": "0010_enable_rls",
+      "breakpoints": true
     }
   ]
 }

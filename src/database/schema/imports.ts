@@ -15,4 +15,4 @@ export const importBatches = pgTable("import_batches", {
   counts: jsonb("counts"),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
   createdAt: createdAt(),
-});
+}).enableRLS();

@@ -36,7 +36,7 @@ export const meterReadings = pgTable(
     unique("meter_readings_unit_period_kind_unique").on(table.unitId, table.period, table.kind),
     check("meter_readings_period_format", sql`${table.period} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
   ],
-);
+).enableRLS();
 
 export const invoices = pgTable(
   "invoices",
@@ -68,7 +68,7 @@ export const invoices = pgTable(
     check("invoices_period_format", sql`${table.period} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
     check("invoices_total_not_negative", sql`${table.total} >= 0`),
   ],
-);
+).enableRLS();
 
 export const invoiceLines = pgTable(
   "invoice_lines",
@@ -91,4 +91,4 @@ export const invoiceLines = pgTable(
     check("invoice_lines_amount_not_negative", sql`${table.amount} >= 0`),
     check("invoice_lines_waived_within_amount", sql`${table.waivedAmount} >= 0 and ${table.waivedAmount} <= ${table.amount}`),
   ],
-);
+).enableRLS();
