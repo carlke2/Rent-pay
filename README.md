@@ -138,44 +138,61 @@ All settings live in one `.env` file (never committed). `src/configuration/envir
 ```dotenv
 # App
 APP_NAME=RentPay
-APP_URL=https://rentpay.millenium.co.ke     # public HTTPS address (a tunnel URL when testing locally)
-SESSION_SECRET=                              # long random string
-CRON_SECRET=                                 # long random string; protects /api/jobs and /api/sandbox
-SUPPORT_EMAIL=
+APP_URL=https://rentpay.millenium.co.ke     # public HTTPS address, no trailing slash (a tunnel URL when testing locally)
+SESSION_SECRET=                              # 32+ random characters
+CRON_SECRET=                                 # 16+ random characters; protects /api/jobs and /api/sandbox (Vercel Cron sends it)
+SUPPORT_EMAIL=                               # optional
+BANK_NAME=                                   # optional: bank details shown to tenants who pay by transfer
+BANK_BRANCH=
+BANK_ACCOUNT_NAME=
+BANK_ACCOUNT_NUMBER=
 
 # Database (Supabase)
-DATABASE_URL=                                # transaction pooler, port 6543 (the app)
-DATABASE_URL_MIGRATIONS=                     # session pooler, port 5432 (migrations and seed)
+DATABASE_URL=                                # the app: transaction pooler, port 6543
+DATABASE_POOL_SIZE=5                         # optional, connections per server instance
+DATABASE_URL_MIGRATIONS=                     # optional, npm run db:migrate only: session pooler, port 5432
 
 # M-Pesa (Daraja)
 MPESA_ENV=sandbox                            # sandbox | live
-MPESA_CONSUMER_KEY=
-MPESA_CONSUMER_SECRET=
-MPESA_SHORTCODE=                             # Paybill for C2B (sandbox: 600xxx test shortcode)
-MPESA_STK_SHORTCODE=                         # sandbox: 174379; when live, the same Paybill
-MPESA_PASSKEY=
-MPESA_CALLBACK_KEY=                          # long random string, added to callback URLs
+MPESA_CONSUMER_KEY=                          # required when live
+MPESA_CONSUMER_SECRET=                       # required when live
+MPESA_SHORTCODE=                             # Paybill for C2B, 5-7 digits (sandbox: 600xxx test shortcode)
+MPESA_STK_SHORTCODE=                         # optional; sandbox: 174379; live: defaults to MPESA_SHORTCODE
+MPESA_STK_PASSKEY=                           # Lipa na M-Pesa Online passkey
+MPESA_CALLBACK_KEY=                          # 16+ URL-safe characters, added to callback URLs
 
-# SMS
-SMS_PROVIDER=console                         # console | bongatech | africastalking
+# SMS (must not be console when MPESA_ENV=live)
+SMS_PROVIDER=console                         # console | advanta | bongatech | africastalking
+ADVANTA_SMS_URL=                             # advanta: optional API URL
+ADVANTA_API_KEY=
+ADVANTA_PARTNER_ID=
+ADVANTA_SHORTCODE=
 BONGATECH_API_URL=https://bulk.bongatech.co.ke/api/v1/send-sms
 BONGATECH_API_KEY=
 BONGATECH_PARTNER_ID=
 BONGATECH_SENDER_ID=
-BONGATECH_AUTH_HEADER=
+BONGATECH_AUTH_HEADER=                       # optional full Authorization header
+AT_USERNAME=                                 # africastalking
+AT_API_KEY=
+AT_SENDER_ID=
 
 # Background jobs
 QUEUE_PROVIDER=inline                        # inline | qstash
-QSTASH_TOKEN=
+QSTASH_TOKEN=                                # required when qstash
 QSTASH_URL=https://qstash.upstash.io
 
-# File storage (slip photos)
+# File storage (slip photos, profile photos); must be s3 on Vercel
 STORAGE_PROVIDER=local                       # local | s3
+STORAGE_LOCAL_DIRECTORY=./storage            # local only
 S3_ENDPOINT=                                 # https://<project-ref>.storage.supabase.co/storage/v1/s3
 S3_REGION=
-S3_BUCKET=rental-uploads                     # private bucket
+S3_BUCKET=                                   # private bucket, no spaces
 S3_ACCESS_KEY_ID=
 S3_SECRET_ACCESS_KEY=
+
+# Development only
+SEED_LANDLORD_EMAIL=
+SEED_LANDLORD_PASSWORD=
 ```
 
 ---

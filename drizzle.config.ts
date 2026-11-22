@@ -12,7 +12,8 @@ export default defineConfig({
   schema: "./src/database/schema/index.ts",
   out: "./src/database/migrations",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "",
+    // Migrations prefer the session pooler (port 5432); the app itself uses DATABASE_URL (transaction pooler, 6543).
+    url: process.env.DATABASE_URL_MIGRATIONS?.trim() || process.env.DATABASE_URL || "",
   },
   strict: true,
   verbose: true,
