@@ -868,7 +868,7 @@ export type TenantListFilter = "all" | "active" | "notice" | "ended" | "owing";
 export async function listTenants(input: { search?: string; status?: TenantListFilter } = {}) {
   const search = input.search?.trim();
   const rows = await getDatabase().execute(sql`
-    select t.id as "tenantId", t.full_name as "fullName", t.phone, t.portal_access as "portalAccess",
+    select t.id as "tenantId", t.full_name as "fullName", t.phone, t.portal_access as "portalAccess", t.avatar_key as "avatarKey",
       coalesce(string_agg(distinct u.code, ', ') filter (where l.status <> 'ended'), string_agg(distinct u.code, ', ')) as units,
       case when bool_or(l.status = 'active') then 'active' when bool_or(l.status = 'notice') then 'notice' when count(l.id) > 0 then 'ended' else 'none' end as "leaseStatus",
       coalesce((select sum(le.debit - le.credit) from ledger_entries le join leases l2 on l2.id = le.lease_id where l2.tenant_id = t.id), 0)::int as balance
@@ -883,6 +883,7 @@ export async function listTenants(input: { search?: string; status?: TenantListF
     fullName: string;
     phone: string;
     portalAccess: boolean;
+    avatarKey: string | null;
     units: string | null;
     leaseStatus: "active" | "notice" | "ended" | "none";
     balance: number;

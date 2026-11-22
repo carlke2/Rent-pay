@@ -13,6 +13,7 @@ import { leases, tenants } from "@/database/schema";
 import { sendLoginCode } from "@/services/notifications";
 import { listCurrentLeasesForTenant } from "@/services/tenancy";
 import { maskPhone, normaliseKenyanPhone } from "@/utilities/phone";
+import { logError } from "@/utilities/log";
 
 export type TenantLoginState = {
   step: "phone" | "code" | "lease";
@@ -92,7 +93,7 @@ export async function tenantLogin(previous: TenantLoginState, formData: FormData
     try {
       result = await checkUnitLogin({ phone, unitCode: typedUnit, address: await clientAddress() });
     } catch (error) {
-      console.error("Tenant unit sign-in failed", error);
+      logError("Tenant unit sign-in failed", error);
       return { ...back, error: "We couldn't sign you in right now. Please try again." };
     }
     if (!result.ok) {
@@ -124,7 +125,7 @@ export async function tenantLogin(previous: TenantLoginState, formData: FormData
       }
       await sendLoginCode(phone, result.code);
     } catch (error) {
-      console.error("Tenant login code request failed", error);
+      logError("Tenant login code request failed", error);
       return { step: "phone", method: "code", error: "We couldn't send a code right now. Please try again." };
     }
     return { step: "code", phone, maskedPhone: maskPhone(phone), codeSentAt: Date.now(), notice: intent === "resend" ? "A new code is on its way." : undefined };
@@ -155,7 +156,7 @@ export async function tenantLogin(previous: TenantLoginState, formData: FormData
         await getDatabase().update(tenants).set({ lastLoginAt: new Date() }).where(eq(tenants.id, tenant.id));
       }
     } catch (error) {
-      console.error("Tenant login code check failed", error);
+      logError("Tenant login code check failed", error);
       return { ...codeState, error: "We couldn't check your code right now. Please try again." };
     }
     if (!tenantId) return { step: "phone", error: "We couldn't find that number. Check it, or contact your landlord." };

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hasCallbackKey } from "@/authentication/secrets";
 import { isPayableAccount, storeCallback } from "@/services/payments";
 import { readCallbackBody, unauthorised } from "../receive";
+import { logError } from "@/utilities/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,10 +22,10 @@ export async function POST(request: Request) {
     storeCallback("paybill_validation", payload),
     isPayableAccount(billReference),
   ]);
-  if (stored.status === "rejected") console.error("Could not store paybill validation callback", stored.reason);
+  if (stored.status === "rejected") logError("Could not store paybill validation callback", stored.reason);
   if (payable.status === "rejected") {
     // If we can't check, accept: the payment is still recorded (unmatched at worst) rather than bounced.
-    console.error("Paybill validation lookup failed", payable.reason);
+    logError("Paybill validation lookup failed", payable.reason);
     return NextResponse.json(ACCEPT);
   }
   return NextResponse.json(payable.value ? ACCEPT : REJECT);

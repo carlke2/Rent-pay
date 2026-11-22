@@ -228,14 +228,16 @@ Sandbox test endpoints (header `Authorization: Bearer <CRON_SECRET>`, only when 
 
 Defined in `vercel.json` (UTC times; Nairobi is UTC+3). Each job is a normal route protected by `CRON_SECRET`, so Google Cloud Scheduler can call the same URLs later.
 
-| Job | When (Nairobi) |
-| --- | --- |
-| `generate-invoices` | 1st of the month, 08:00 |
-| `apply-penalties` | Daily, 08:30 |
-| `send-reminders` | Daily, 09:00 |
-| `daily-summary` | Daily, 07:00 |
-| `check-stk-status` | Daily sweep (live checks also run from the pay screen) |
-| `integrity-checks` | Nightly |
+| Job | `vercel.json` (UTC) | When (Nairobi) |
+| --- | --- | --- |
+| `integrity-checks` | `30 0 * * *` | Daily 03:30 (reports any table without row level security) |
+| `check-stk-status` | `0 3 * * *` | Daily 06:00 sweep (live checks also run from the pay screen) |
+| `generate-invoices` | `0 4 * * *` | Daily 07:00; only bills on the 1st of the month |
+| `daily-summary` | `15 4 * * *` | Daily 07:15 |
+| `apply-penalties` | `0 5 * * *` | Daily 08:00 |
+| `send-reminders` | `0 6 * * *` | Daily 09:00 |
+
+Vercel Cron sends `Authorization: Bearer $CRON_SECRET` automatically when `CRON_SECRET` is set; every job route returns 401 without it.
 
 ---
 

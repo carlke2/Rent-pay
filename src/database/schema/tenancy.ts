@@ -19,6 +19,8 @@ export const tenants = pgTable("tenants", {
   nextOfKin: jsonb("next_of_kin").$type<NextOfKin>(),
   portalAccess: boolean("portal_access").notNull().default(true),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  /** Profile photo in private storage: avatars/{tenantId}/{random}.webp (512x512, metadata stripped). */
+  avatarKey: text("avatar_key"),
   createdAt: createdAt(),
 }).enableRLS();
 

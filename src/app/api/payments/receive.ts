@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { hasCallbackKey } from "@/authentication/secrets";
 import { queueJob } from "@/services/jobs";
 import { storeCallback, type CallbackKind } from "@/services/payments";
+import { logError } from "@/utilities/log";
 
 /** Reads a callback body; anything that isn't JSON is kept as text so nothing is lost. */
 export async function readCallbackBody(request: Request): Promise<unknown> {
@@ -30,7 +31,7 @@ export async function receiveCallback(request: Request, kind: Exclude<CallbackKi
   try {
     callbackId = await storeCallback(kind, payload);
   } catch (error) {
-    console.error(`Could not store ${kind} callback`, error);
+    logError(`Could not store ${kind} callback`, error);
     return NextResponse.json({ ResultCode: 1, ResultDesc: "Temporary error" }, { status: 500 });
   }
 
@@ -38,7 +39,7 @@ export async function receiveCallback(request: Request, kind: Exclude<CallbackKi
     await queueJob("process-payment", { callbackId });
   } catch (error) {
     // Stored safely; it can be reprocessed from payment_callbacks.
-    console.error(`Could not queue ${kind} callback ${callbackId}`, error);
+    logError(`Could not queue ${kind} callback ${callbackId}`, error);
   }
   return NextResponse.json(reply);
 }

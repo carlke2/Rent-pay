@@ -8,6 +8,7 @@ import type { ActionState } from "@/components/shared/action-types";
 import { ServiceError } from "@/services/errors";
 import type { TenantLease } from "@/services/portal";
 import { currentTenantLease } from "../current-lease";
+import { logError } from "@/utilities/log";
 
 function fieldErrors(error: ZodError): Record<string, string> {
   const errors: Record<string, string> = {};
@@ -32,7 +33,7 @@ export async function runTenantAction<Schema extends z.ZodType>(schema: Schema, 
     unstable_rethrow(error);
     if (error instanceof ServiceError || error instanceof RangeError) return { status: "error", message: error.message, at };
     if (error instanceof DarajaError) return { status: "error", message: "We couldn't reach M-Pesa. Please try again, or pay from the M-Pesa menu.", at };
-    console.error("Tenant action failed", error);
+    logError("Tenant action failed", error);
     return { status: "error", message: "Something went wrong. Please try again.", at };
   }
 }

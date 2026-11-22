@@ -6,11 +6,14 @@ export function PageHeader({
   description,
   back,
   actions,
+  leading,
 }: {
   title: string;
   description?: React.ReactNode;
   back?: { href: string; label: string };
   actions?: React.ReactNode;
+  /** Shown left of the title, e.g. a person's avatar. */
+  leading?: React.ReactNode;
 }) {
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -20,8 +23,13 @@ export function PageHeader({
             <ChevronLeft className="size-4" /> {back.label}
           </Link>
         ) : null}
-        <h1 className="truncate font-display text-2xl font-normal tracking-[-0.01em] sm:text-[28px]">{title}</h1>
-        {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+        <div className="flex min-w-0 items-center gap-4">
+          {leading}
+          <div className="min-w-0">
+            <h1 className="truncate font-display text-2xl font-normal tracking-[-0.01em] sm:text-[28px]">{title}</h1>
+            {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+          </div>
+        </div>
       </div>
       {actions ? <div className="flex flex-wrap gap-2 print:hidden">{actions}</div> : null}
     </div>

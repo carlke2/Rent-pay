@@ -34,6 +34,7 @@ import { normaliseKenyanPhone } from "@/utilities/phone";
 import { writeAudit } from "./audit";
 import { ServiceError } from "./errors";
 import { sendSms } from "./notifications";
+import { logError } from "@/utilities/log";
 
 // ---------------------------------------------------------------------------
 // Template
@@ -965,7 +966,7 @@ export async function runImport(input: {
       );
       return { ok: true as const, row, result };
     } catch (error) {
-      console.error(`[import] unit ${row.unitCode} failed`, error);
+      logError(`[import] unit ${row.unitCode} failed`, error);
       return { ok: false as const, row, message: error instanceof ServiceError ? error.message : "Could not be saved" };
     }
   });

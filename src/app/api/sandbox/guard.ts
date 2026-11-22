@@ -9,6 +9,7 @@ import { getDatabase } from "@/database/client";
 import { units } from "@/database/schema";
 import { ServiceError } from "@/services/errors";
 import { isBillingPeriod, isIsoDate } from "@/utilities/dates";
+import { logError } from "@/utilities/log";
 
 /** Actor recorded in audit_log for sandbox calls. */
 export const SANDBOX_ACTOR = "sandbox:api";
@@ -41,7 +42,7 @@ export function sandboxRoute<TContext = unknown>(handler: Handler<TContext>) {
       if (error instanceof ServiceError || error instanceof RangeError) {
         return NextResponse.json({ error: error.message }, { status: 400 });
       }
-      console.error("Sandbox endpoint failed", error);
+      logError("Sandbox endpoint failed", error);
       return NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 });
     }
   };

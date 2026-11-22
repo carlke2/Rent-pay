@@ -45,6 +45,7 @@ export async function getTenantLease(tenantId: string, leaseId?: string | null) 
       buildingName: buildings.name,
       tenantName: tenants.fullName,
       tenantPhone: tenants.phone,
+      tenantAvatarKey: tenants.avatarKey,
     })
     .from(leases)
     .innerJoin(units, eq(units.id, leases.unitId))
@@ -349,9 +350,68 @@ export async function setWhatsappOptIn(tenantId: string, optIn: boolean) {
 
 export async function getTenantProfile(tenantId: string) {
   const [row] = await getDatabase()
-    .select({ fullName: tenants.fullName, phone: tenants.phone, alternativePhone: tenants.alternativePhone, whatsappOptIn: tenants.whatsappOptIn })
+    .select({ fullName: tenants.fullName, phone: tenants.phone, alternativePhone: tenants.alternativePhone, whatsappOptIn: tenants.whatsappOptIn, avatarKey: tenants.avatarKey })
     .from(tenants)
     .where(eq(tenants.id, tenantId));
   return row ?? null;
 }
 
+
+/** Whole calendar months from one ISO date to another (0 if the end is before the start). */
+function wholeMonthsBetween(from: string, to: string): number {
+  const [fy, fm, fd] = from.split("-").map(Number) as [number, number, number];
+  const [ty, tm, td] = to.split("-").map(Number) as [number, number, number];
+  return Math.max(0, (ty - fy) * 12 + (tm - fm) - (td < fd ? 1 : 0));
+}
+
+/**
+ * The profile card's numbers, all from the ledger and payments (none invented):
+ * - tenantSince: the first lease's start date.
+ * - monthsAsTenant: whole months from then until today (or the last lease's end if every lease has ended).
+ * - paymentsMade: matched payments on any of the tenant's leases (opening balances brought in at import are not payments).
+ * - onTimePercent: of bills already past their due date (opening arrears excluded), the share fully covered by
+ *   payments made on or before the due date. Null when no bill has fallen due yet.
+ */
+export async function getTenantProfileStats(tenantId: string, today: IsoDate = todayInNairobi()) {
+  const database = getDatabase();
+  const [[span], [paid], [bills]] = await Promise.all([
+    database.execute(sql`
+      select min(start_date)::text as "since", bool_or(status <> 'ended') as "current", max(end_date)::text as "lastEnd"
+      from leases where tenant_id = ${tenantId}`),
+    database.execute(sql`
+      select count(*)::int as "count"
+      from payments p join leases l on l.id = p.lease_id
+      where l.tenant_id = ${tenantId} and p.match_status = 'matched' and p.source <> 'opening'`),
+    database.execute(sql`
+      with due as (
+        select i.id, i.due_date, sum(il.amount - il.waived_amount) as total
+        from invoices i
+        join leases l on l.id = i.lease_id
+        join invoice_lines il on il.invoice_id = i.id
+        where l.tenant_id = ${tenantId} and i.source <> 'opening' and i.due_date <= ${today}
+        group by i.id, i.due_date
+      ),
+      paid_in_time as (
+        select il.invoice_id, sum(a.amount) as amount
+        from allocations a
+        join invoice_lines il on il.id = a.invoice_line_id
+        join payments p on p.id = a.payment_id
+        join due on due.id = il.invoice_id
+        where (p.paid_at at time zone 'Africa/Nairobi')::date <= due.due_date
+        group by il.invoice_id
+      )
+      select count(*) filter (where due.total > 0)::int as "due",
+             count(*) filter (where due.total > 0 and coalesce(paid_in_time.amount, 0) >= due.total)::int as "onTime"
+      from due left join paid_in_time on paid_in_time.invoice_id = due.id`),
+  ]);
+  const { since, current, lastEnd } = span as { since: string | null; current: boolean | null; lastEnd: string | null };
+  const { count } = paid as { count: number };
+  const { due, onTime } = bills as { due: number; onTime: number };
+  return {
+    tenantSince: since,
+    monthsAsTenant: since ? wholeMonthsBetween(since, current || !lastEnd ? today : lastEnd) : 0,
+    paymentsMade: count,
+    onTimePercent: due > 0 ? Math.round((onTime / due) * 100) : null,
+    billsDue: due,
+  };
+}

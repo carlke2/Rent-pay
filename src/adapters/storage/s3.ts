@@ -1,5 +1,5 @@
 import "server-only";
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getEnvironment } from "@/configuration/environment";
 import { assertSafeKey, type FileStorage } from "./types";
@@ -29,5 +29,20 @@ export const s3Storage: FileStorage = {
   async getSignedUrl(key, expiresInSeconds = 600) {
     const { client, bucket } = s3();
     return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: assertSafeKey(key) }), { expiresIn: expiresInSeconds });
+  },
+  async get(key) {
+    const { client, bucket } = s3();
+    try {
+      const object = await client.send(new GetObjectCommand({ Bucket: bucket, Key: assertSafeKey(key) }));
+      if (!object.Body) return null;
+      return { bytes: await object.Body.transformToByteArray(), contentType: object.ContentType ?? "application/octet-stream" };
+    } catch (error) {
+      if (error instanceof NoSuchKey || (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404) return null;
+      throw error;
+    }
+  },
+  async delete(key) {
+    const { client, bucket } = s3();
+    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: assertSafeKey(key) }));
   },
 };

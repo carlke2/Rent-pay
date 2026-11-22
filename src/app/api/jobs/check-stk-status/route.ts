@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { hasCronSecret } from "@/authentication/secrets";
 import { runJob } from "@/services/jobs";
+import { logError } from "@/utilities/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ async function handle(request: Request) {
     const result = await runJob("check-stk-status", {});
     return NextResponse.json({ ok: true, result });
   } catch (error) {
-    console.error("check-stk-status job failed", error);
+    logError("check-stk-status job failed", error);
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Job failed" }, { status: 500 });
   }
 }

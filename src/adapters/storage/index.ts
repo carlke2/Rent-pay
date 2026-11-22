@@ -24,6 +24,12 @@ function ascii(bytes: Uint8Array, start: number, end: number): string {
   return String.fromCharCode(...bytes.subarray(start, end));
 }
 
+/** The image type from a file's first bytes (magic numbers), ignoring whatever type the browser claimed. */
+export function detectImageType(bytes: Uint8Array): { contentType: string; extension: string } | null {
+  const match = IMAGE_SIGNATURES.find((signature) => signature.matches(bytes));
+  return match ? { contentType: match.type, extension: match.extension } : null;
+}
+
 /** Checks a payment slip is an image (by its bytes, not the claimed type) and at most 5 MB. */
 export function inspectSlip(bytes: Uint8Array): { contentType: string; extension: string } {
   if (bytes.byteLength === 0) throw new Error("The slip is empty");

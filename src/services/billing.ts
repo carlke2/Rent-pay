@@ -43,6 +43,7 @@ import { assertPeriodOpen } from "./closed-periods";
 import { ServiceError } from "./errors";
 import { queueJob } from "./jobs";
 import { getPolicy, loadPolicyResolver } from "./policies";
+import { logError } from "@/utilities/log";
 
 /** A problem with the request (bad input, wrong state), safe to show to the caller. */
 export class BillingError extends ServiceError {}
@@ -602,7 +603,7 @@ export async function queueNotification(kind: "invoice" | "penalty", id: string)
   try {
     await queueJob("send-notification", { kind, id });
   } catch (error) {
-    console.error(`Could not queue ${kind} notification for ${id}`, error);
+    logError(`Could not queue ${kind} notification for ${id}`, error);
   }
 }
 

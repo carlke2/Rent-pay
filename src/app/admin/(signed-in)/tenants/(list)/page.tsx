@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Users } from "lucide-react";
+import { Avatar } from "@/components/shared/avatar";
 import { Button } from "@/components/shared/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar } from "@/components/shared/filter-bar";
@@ -8,6 +9,7 @@ import { Money } from "@/components/shared/money";
 import { PageHeader } from "@/components/shared/page-header";
 import { ResponsiveTable } from "@/components/shared/responsive-table";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { avatarUrl } from "@/services/avatars";
 import { listTenants, type TenantListFilter } from "@/services/tenancy";
 
 export const metadata: Metadata = { title: "Tenants" };
@@ -50,7 +52,17 @@ export default async function TenantsPage({ searchParams }: PageProps<"/admin/te
           rows={tenants}
           rowKey={(row) => row.tenantId}
           columns={[
-            { key: "name", header: "Tenant", primary: true, cell: (row) => <Link href={`/admin/tenants/${row.tenantId}`} className="font-medium">{row.fullName}</Link> },
+            {
+              key: "name",
+              header: "Tenant",
+              primary: true,
+              cell: (row) => (
+                <Link href={`/admin/tenants/${row.tenantId}`} className="inline-flex items-center gap-2.5 font-medium">
+                  <Avatar name={row.fullName} src={avatarUrl(row.tenantId, row.avatarKey)} className="size-8 text-xs" />
+                  {row.fullName}
+                </Link>
+              ),
+            },
             { key: "phone", header: "Phone", cell: (row) => `0${row.phone.slice(3)}` },
             { key: "units", header: "Unit", cell: (row) => row.units ?? "–" },
             { key: "status", header: "Status", cell: (row) => <StatusBadge status={row.leaseStatus} label={row.leaseStatus === "ended" ? "Moved out" : undefined} /> },

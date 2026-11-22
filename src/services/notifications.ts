@@ -34,6 +34,8 @@ import { fitSms, smsLink, smsPrefix, toGsm7 } from "@/utilities/sms-text";
 import { countReadingsToConfirm } from "./billing";
 import { loadPolicyResolver } from "./policies";
 import { leaseBalance } from "./tenancy";
+import { logError } from "@/utilities/log";
+import { maskPhone } from "@/utilities/phone";
 
 export type SendOutcome = "sent" | "failed" | "skipped";
 
@@ -142,7 +144,7 @@ async function alreadySent(
  */
 export async function sendSms(input: SendInput): Promise<{ status: SendOutcome }> {
   if (!input.ignoreQuietHours && isQuietHours()) {
-    console.info(`[notifications] quiet hours: skipped ${input.template} to ${input.to}`);
+    console.info(`[notifications] quiet hours: skipped ${input.template} to ${maskPhone(input.to)}`);
     return { status: "skipped" };
   }
 
@@ -153,7 +155,7 @@ export async function sendSms(input: SendInput): Promise<{ status: SendOutcome }
   try {
     result = await getSmsSender().send(input.to, body);
   } catch (error) {
-    console.error(`[notifications] ${input.template} to ${input.to} failed`, error);
+    logError(`[notifications] ${input.template} to ${maskPhone(input.to)} failed`, error);
     result = { providerId: null, status: "failed", cost: null };
   }
 
@@ -172,7 +174,7 @@ export async function sendSms(input: SendInput): Promise<{ status: SendOutcome }
         relatedId: input.relatedId ?? null,
       });
   } catch (error) {
-    console.error(`[notifications] could not record ${input.template} message`, error);
+    logError(`[notifications] could not record ${input.template} message`, error);
   }
   return { status: result.status };
 }
@@ -186,7 +188,7 @@ async function billLinkOr(leaseId: string, unitCode: string): Promise<string> {
   try {
     return await createBillLink(leaseId);
   } catch (error) {
-    console.error("[notifications] could not create a bill link", error);
+    logError("[notifications] could not create a bill link", error);
     return `Paybill ${getEnvironment().MPESA_SHORTCODE} Acc ${unitCode}`;
   }
 }
@@ -368,7 +370,7 @@ export async function sendReceipt(paymentId: string): Promise<void> {
     });
     if (status === "sent") await getDatabase().update(receipts).set({ sentAt: new Date() }).where(eq(receipts.id, row.receiptId));
   } catch (error) {
-    console.error(`[notifications] sendReceipt(${paymentId}) failed`, error);
+    logError(`[notifications] sendReceipt(${paymentId}) failed`, error);
   }
 }
 
@@ -390,7 +392,7 @@ export async function notifyLandlordUnmatched(paymentId: string): Promise<void> 
       `Assign: ${smsLink(getEnvironment().APP_URL, "/admin/payments")}`;
     await sendSms({ to: phone, body, template: "payment_unmatched", relatedId: paymentId });
   } catch (error) {
-    console.error(`[notifications] notifyLandlordUnmatched(${paymentId}) failed`, error);
+    logError(`[notifications] notifyLandlordUnmatched(${paymentId}) failed`, error);
   }
 }
 
@@ -438,7 +440,7 @@ export async function sendStkIncomplete(input: {
       ignoreQuietHours: true,
     });
   } catch (error) {
-    console.error(`[notifications] sendStkIncomplete(${input.paymentRequestId}) failed`, error);
+    logError(`[notifications] sendStkIncomplete(${input.paymentRequestId}) failed`, error);
     return { status: "failed" };
   }
 }
@@ -506,7 +508,7 @@ export async function sendInvoice(invoiceId: string): Promise<{ status: SendOutc
 
     return sendSms({ to: invoice.phone, body, template, leaseId: invoice.leaseId, relatedId: invoice.id });
   } catch (error) {
-    console.error(`[notifications] sendInvoice(${invoiceId}) failed`, error);
+    logError(`[notifications] sendInvoice(${invoiceId}) failed`, error);
     return { status: "failed" };
   }
 }
@@ -537,7 +539,7 @@ export async function sendPenaltyNotice(invoiceLineId: string): Promise<{ status
     const body = billSms.lateFee({ unit: row.unitCode, fee: row.amount, balance: Math.max(0, balance), link });
     return sendSms({ to: row.phone, body, template, leaseId: row.leaseId, relatedId: invoiceLineId });
   } catch (error) {
-    console.error(`[notifications] sendPenaltyNotice(${invoiceLineId}) failed`, error);
+    logError(`[notifications] sendPenaltyNotice(${invoiceLineId}) failed`, error);
     return { status: "failed" };
   }
 }
@@ -789,7 +791,7 @@ export async function sendWelcome(leaseId: string): Promise<{ status: SendOutcom
     });
     return sendSms({ to: row.phone, body, template: "welcome", leaseId });
   } catch (error) {
-    console.error(`[notifications] sendWelcome(${leaseId}) failed`, error);
+    logError(`[notifications] sendWelcome(${leaseId}) failed`, error);
     return { status: "failed" };
   }
 }
@@ -827,7 +829,7 @@ export async function sendFinalStatement(input: {
     });
     return sendSms({ to: row.phone, body, template: "final_statement", leaseId: input.leaseId });
   } catch (error) {
-    console.error(`[notifications] sendFinalStatement(${input.leaseId}) failed`, error);
+    logError(`[notifications] sendFinalStatement(${input.leaseId}) failed`, error);
     return { status: "failed" };
   }
 }
@@ -871,7 +873,7 @@ export async function notifyTenantClaimReceived(claimId: string): Promise<{ stat
       `${ref ? ` (ref ${ref})` : ""} for ${row.unitCode}. We will text your receipt once it is confirmed.`;
     return sendSms({ to: row.phone, body, template, leaseId: row.leaseId, relatedId: claimId });
   } catch (error) {
-    console.error(`[notifications] notifyTenantClaimReceived(${claimId}) failed`, error);
+    logError(`[notifications] notifyTenantClaimReceived(${claimId}) failed`, error);
     return { status: "failed" };
   }
 }
@@ -915,7 +917,7 @@ export async function notifyClaimRejected(input: {
       `${phone ? ` Questions? Call ${phone}` : ""}`;
     return sendSms({ to: input.phone, body, template, leaseId: input.leaseId, relatedId: input.claimId });
   } catch (error) {
-    console.error(`[notifications] notifyClaimRejected(${input.claimId}) failed`, error);
+    logError(`[notifications] notifyClaimRejected(${input.claimId}) failed`, error);
     return { status: "failed" as const };
   }
 }
@@ -957,7 +959,7 @@ export async function notifyPaymentReversed(paymentId: string, reason: string) {
       `${phone ? ` Questions? Call ${phone}` : ""}`;
     return sendSms({ to: row.phone, body, template, leaseId: row.leaseId, relatedId: paymentId });
   } catch (error) {
-    console.error(`[notifications] notifyPaymentReversed(${paymentId}) failed`, error);
+    logError(`[notifications] notifyPaymentReversed(${paymentId}) failed`, error);
     return { status: "failed" as const };
   }
 }

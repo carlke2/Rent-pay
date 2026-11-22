@@ -1,9 +1,10 @@
 import { CopyButton } from "@/components/shared/copy-button";
+import { cn } from "@/utilities/class-names";
 
 /** Paybill and account number with copy buttons, and the M-Pesa menu steps. */
-export function PaybillCard({ paybill, account, title = "Pay from the M-Pesa menu" }: { paybill: string; account: string; title?: string }) {
+export function PaybillCard({ paybill, account, title = "Pay from the M-Pesa menu", className }: { paybill: string; account: string; title?: string; className?: string }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-4">
+    <section className={cn("rounded-2xl border border-border bg-card p-4", className)}>
       <h2 className="font-semibold text-heading">{title}</h2>
       <dl className="mt-3 grid gap-2">
         {[

@@ -70,6 +70,9 @@ const environmentSchema = z
     S3_ACCESS_KEY_ID: optionalText,
     S3_SECRET_ACCESS_KEY: optionalText,
 
+    /** Set by Vercel on its servers ("1"); used to insist on S3 storage there. */
+    VERCEL: optionalText,
+
     SEED_LANDLORD_EMAIL: optionalText.pipe(z.email().optional()),
     SEED_LANDLORD_PASSWORD: optionalText,
   })
@@ -109,6 +112,14 @@ const environmentSchema = z
       ["S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"],
       "STORAGE_PROVIDER=s3",
     );
+    // Fail at the first request rather than silently: live tenants can't sign in without real SMS, and
+    // Vercel's filesystem is read-only, so local storage would lose every upload.
+    if (values.MPESA_ENV === "live" && values.SMS_PROVIDER === "console") {
+      context.addIssue({ code: "custom", path: ["SMS_PROVIDER"], message: "must be a real SMS provider (not console) when MPESA_ENV=live" });
+    }
+    if (values.VERCEL && values.STORAGE_PROVIDER !== "s3") {
+      context.addIssue({ code: "custom", path: ["STORAGE_PROVIDER"], message: "must be s3 on Vercel (its filesystem is read-only)" });
+    }
     if (values.MPESA_ENV === "live" && !values.APP_URL.startsWith("https://")) {
       context.addIssue({ code: "custom", path: ["APP_URL"], message: "must be https:// when MPESA_ENV=live" });
     }

@@ -1,6 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { getEnvironment } from "@/configuration/environment";
+import { logError } from "@/utilities/log";
 
 /**
  * Runs a task after the response has been sent (QUEUE_PROVIDER=inline).
@@ -11,7 +12,7 @@ export function runAfterResponse(task: () => Promise<unknown>, label: string): v
     try {
       await task();
     } catch (error) {
-      console.error(`[queue:inline] ${label} failed`, error);
+      logError(`[queue:inline] ${label} failed`, error);
     }
   });
 }

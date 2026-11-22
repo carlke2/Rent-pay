@@ -8,6 +8,7 @@ import { isIsoDate } from "@/utilities/dates";
 import { normaliseKenyanPhone } from "@/utilities/phone";
 import { currentTenantLease } from "../current-lease";
 import { runTenantAction } from "./run";
+import { logError } from "@/utilities/log";
 
 /** M-Pesa's per-transaction ceiling. */
 const MAXIMUM_AMOUNT = 250_000;
@@ -46,7 +47,7 @@ export async function checkPaymentAction(requestId: string) {
     try {
       await refreshStkStatus(requestId);
     } catch (error) {
-      console.error("STK status check failed", error);
+      logError("STK status check failed", error);
     }
   }
   const progress = await getPaymentProgress(tenantId, requestId);

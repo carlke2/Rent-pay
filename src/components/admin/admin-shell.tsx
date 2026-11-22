@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { navItemClass as itemClass, NavGroupLabel, UserMenu } from "@/components/shared/app-shell";
 import { NavLink } from "@/components/shared/nav-link";
 import {
   Building2,
@@ -11,10 +12,8 @@ import {
   Droplets,
   FileText,
   LayoutGrid,
-  LogOut,
   Menu,
   MessageSquare,
-  MoreVertical,
   PanelLeftClose,
   PanelLeftOpen,
   Receipt,
@@ -27,14 +26,7 @@ import { signOutLandlord } from "@/app/admin/actions/session";
 import type { AttentionItem } from "@/services/reports";
 import { cn } from "@/utilities/class-names";
 import { ThemedLogo } from "../shared/logo";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../shared/ui/dropdown-menu";
+import { DropdownMenuItem } from "../shared/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "../shared/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../shared/ui/tooltip";
 import { AdminTopBar } from "./admin-top-bar";
@@ -81,17 +73,6 @@ function matches(pathname: string, href: string) {
   return href === "/admin" ? pathname === "/admin" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function initialsOf(name: string) {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((part) => part.charAt(0))
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "L"
-  );
-}
 
 /** The landlord app frame: black sidebar (collapsible to an icon rail, a drawer under 1024px), top bar and content. */
 export function AdminShell(props: AdminShellProps) {
@@ -248,7 +229,7 @@ function SidebarContent({
       <nav aria-label="Main" className={cn("min-h-0 flex-1 overflow-y-auto pb-4", rail ? "px-3" : "px-3")}>
         {groups.map((group) => (
           <div key={group.label} className="mt-3 first:mt-1">
-            {rail ? <div className="mx-auto my-2 h-px w-6 bg-sidebar-border" aria-hidden /> : <p className="px-3 pb-1.5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{group.label}</p>}
+            {rail ? <div className="mx-auto my-2 h-px w-6 bg-sidebar-border" aria-hidden /> : <NavGroupLabel>{group.label}</NavGroupLabel>}
             <ul className="grid gap-0.5">
               {group.items.map((item) => (
                 <NavItem key={item.href} item={item} pathname={pathname} rail={rail} />
@@ -263,14 +244,6 @@ function SidebarContent({
   );
 }
 
-const itemClass = (active: boolean, rail: boolean) =>
-  cn(
-    "group flex h-11 items-center gap-3 rounded-lg text-sm font-medium no-underline transition-colors",
-    rail ? "justify-center px-0" : "px-3",
-    active
-      ? "bg-surface-raised text-heading shadow-[inset_0_0_0_1px_var(--nav-active-ring)] hover:text-heading"
-      : "text-text-secondary hover:bg-surface-raised/60 hover:text-heading",
-  );
 
 function CountBadge({ badge, rail }: { badge?: Badge; rail: boolean }) {
   if (!badge || badge.count <= 0) return null;
@@ -358,45 +331,13 @@ function NavItem({ item, pathname, rail }: { item: Item; pathname: string; rail:
 function ProfileCard({ name, email, rail }: { name: string; email: string; rail: boolean }) {
   return (
     <div className={cn("shrink-0 border-t border-sidebar-border", rail ? "p-2" : "p-3")}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className={cn("flex w-full items-center gap-3 rounded-xl text-left hover:bg-surface-raised", rail ? "justify-center p-1.5" : "border bg-card p-2.5")}
-            aria-label={`Account menu for ${name}`}
-          >
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-raised text-sm font-semibold text-heading ring-1 ring-border-strong">{initialsOf(name)}</span>
-            {rail ? null : (
-              <>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-heading">{name}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{email}</span>
-                </span>
-                <MoreVertical className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              </>
-            )}
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side={rail ? "right" : "top"} align={rail ? "end" : "start"} className="w-56">
-          <DropdownMenuLabel className="font-normal">
-            <p className="truncate font-medium">{name}</p>
-            <p className="truncate text-xs text-muted-foreground">{email}</p>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/admin/settings" className="text-foreground no-underline">
-              <Settings className="size-4" aria-hidden /> Settings
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <form action={signOutLandlord} className="w-full">
-              <button type="submit" className="flex w-full items-center gap-2">
-                <LogOut className="size-4" aria-hidden /> Log out
-              </button>
-            </form>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <UserMenu name={name} detail={email} variant={rail ? "rail" : "card"} signOut={signOutLandlord}>
+        <DropdownMenuItem asChild>
+          <Link href="/admin/settings" className="text-foreground no-underline">
+            <Settings className="size-4" aria-hidden /> Settings
+          </Link>
+        </DropdownMenuItem>
+      </UserMenu>
     </div>
   );
 }

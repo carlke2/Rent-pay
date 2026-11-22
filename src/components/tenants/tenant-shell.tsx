@@ -8,9 +8,7 @@ import {
   FileText,
   Home,
   LayoutGrid,
-  LogOut,
   Menu,
-  MoreVertical,
   ReceiptText,
   Smartphone,
   UploadCloud,
@@ -18,18 +16,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { signOutTenant } from "@/app/tenants/actions/session";
+import { navItemClass, NavGroupLabel, UserMenu } from "@/components/shared/app-shell";
 import { NavLink } from "@/components/shared/nav-link";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { cn } from "@/utilities/class-names";
 import { ThemedLogo } from "../shared/logo";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../shared/ui/dropdown-menu";
+import { DropdownMenuItem } from "../shared/ui/dropdown-menu";
 
 type Item = { href: string; label: string; icon: LucideIcon; also?: string[] };
 
@@ -75,17 +67,6 @@ const TITLES: [string, string][] = [
 const matches = (pathname: string, href: string) => (href === "/tenants" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`));
 const isActive = (pathname: string, item: Item) => matches(pathname, item.href) || Boolean(item.also?.some((prefix) => matches(pathname, prefix)));
 
-function initialsOf(name: string) {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((part) => part.charAt(0))
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "T"
-  );
-}
 
 export type TenantShellProps = {
   appName: string;
@@ -93,11 +74,23 @@ export type TenantShellProps = {
   unitCode: string | null;
   buildingName: string | null;
   canPay: boolean;
+  /** The tenant's photo (/api/avatars/…), or null for initials. */
+  avatarUrl: string | null;
   children: React.ReactNode;
 };
 
+/**
+ * Content width per screen. The overview and profile use the landlord dashboard's full container; every other
+ * screen keeps the original phone-width column (416px, 400px from sm up).
+ */
+function contentWidth(pathname: string) {
+  // The overview and the profile lay themselves out in the full container (same padding as the landlord app).
+  if (pathname === "/tenants" || pathname === "/tenants/profile") return "";
+  return "mx-auto max-w-[416px] sm:max-w-[400px]";
+}
+
 /** The tenant portal frame, matching the landlord app: black sidebar on desktop, top bar, bottom bar on phones. */
-export function TenantShell({ appName, tenantName, unitCode, buildingName, canPay, children }: TenantShellProps) {
+export function TenantShell({ appName, tenantName, unitCode, buildingName, canPay, avatarUrl, children }: TenantShellProps) {
   const pathname = usePathname();
   const title = pathname === "/tenants" ? "Overview" : (TITLES.find(([prefix]) => matches(pathname, prefix))?.[1] ?? "Overview");
 
@@ -112,22 +105,13 @@ export function TenantShell({ appName, tenantName, unitCode, buildingName, canPa
         <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
           {GROUPS.map((group) => (
             <div key={group.label} className="mt-3 first:mt-1">
-              <p className="px-3 pb-1.5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{group.label}</p>
+              <NavGroupLabel>{group.label}</NavGroupLabel>
               <ul className="grid gap-0.5">
                 {group.items.map((item) => {
                   const active = isActive(pathname, item);
                   return (
                     <li key={item.href}>
-                      <NavLink
-                        href={item.href}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          "flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium no-underline transition-colors",
-                          active
-                            ? "bg-surface-raised text-heading shadow-[inset_0_0_0_1px_var(--nav-active-ring)] hover:text-heading"
-                            : "text-text-secondary hover:bg-surface-raised/60 hover:text-heading",
-                        )}
-                      >
+                      <NavLink href={item.href} aria-current={active ? "page" : undefined} className={navItemClass(active)}>
                         <item.icon className="size-[18px]" aria-hidden />
                         {item.label}
                       </NavLink>
@@ -139,7 +123,7 @@ export function TenantShell({ appName, tenantName, unitCode, buildingName, canPa
           ))}
         </nav>
         <div className="shrink-0 border-t border-sidebar-border p-3">
-          <ProfileMenu name={tenantName} detail={[unitCode, buildingName].filter(Boolean).join(" · ")} />
+          <ProfileMenu name={tenantName} detail={[unitCode, buildingName].filter(Boolean).join(" · ")} avatarUrl={avatarUrl} />
         </div>
       </aside>
 
@@ -167,11 +151,14 @@ export function TenantShell({ appName, tenantName, unitCode, buildingName, canPa
           ) : null}
           <ThemeToggle />
           <div className="lg:hidden">
-            <ProfileMenu name={tenantName} detail={[unitCode, buildingName].filter(Boolean).join(" · ")} compact />
+            <ProfileMenu name={tenantName} detail={[unitCode, buildingName].filter(Boolean).join(" · ")} avatarUrl={avatarUrl} compact />
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-md px-[max(1rem,env(safe-area-inset-left))] pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:pb-12 print:max-w-none print:p-0">{children}</main>
+        {/* Same container as the landlord app; the bottom padding clears the phone tab bar. */}
+        <main className="mx-auto w-full max-w-[1400px] px-[max(1rem,env(safe-area-inset-left))] pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-12 print:max-w-none print:p-0">
+          <div className={cn(contentWidth(pathname), "print:max-w-none")}>{children}</div>
+        </main>
       </div>
 
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-sidebar-border bg-sidebar pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] lg:hidden print:hidden">
@@ -199,47 +186,15 @@ export function TenantShell({ appName, tenantName, unitCode, buildingName, canPa
   );
 }
 
-function ProfileMenu({ name, detail, compact = false }: { name: string; detail: string; compact?: boolean }) {
+function ProfileMenu({ name, detail, avatarUrl, compact = false }: { name: string; detail: string; avatarUrl: string | null; compact?: boolean }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn("flex items-center gap-3 rounded-xl text-left hover:bg-surface-raised", compact ? "min-h-11 min-w-11 justify-center p-1" : "w-full border bg-card p-2.5")}
-          aria-label={`Account menu for ${name}`}
-        >
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-raised text-sm font-semibold text-heading ring-1 ring-border-strong">{initialsOf(name)}</span>
-          {compact ? null : (
-            <>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-heading">{name}</span>
-                <span className="block truncate text-xs text-muted-foreground">{detail}</span>
-              </span>
-              <MoreVertical className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-            </>
-          )}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side={compact ? "bottom" : "top"} align={compact ? "end" : "start"} className="w-56">
-        <DropdownMenuLabel className="font-normal">
-          <p className="truncate font-medium">{name}</p>
-          <p className="truncate text-xs text-muted-foreground">{detail}</p>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/tenants/profile" className="text-foreground no-underline">
-            <UserRound className="size-4" aria-hidden /> Profile
-            <ChevronRight className="ml-auto size-4 text-muted-foreground" aria-hidden />
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <form action={signOutTenant} className="w-full">
-            <button type="submit" className="flex w-full items-center gap-2">
-              <LogOut className="size-4" aria-hidden /> Log out
-            </button>
-          </form>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <UserMenu name={name} detail={detail} avatarSrc={avatarUrl} variant={compact ? "compact" : "card"} signOut={signOutTenant}>
+      <DropdownMenuItem asChild>
+        <Link href="/tenants/profile" className="text-foreground no-underline">
+          <UserRound className="size-4" aria-hidden /> Profile
+          <ChevronRight className="ml-auto size-4 text-muted-foreground" aria-hidden />
+        </Link>
+      </DropdownMenuItem>
+    </UserMenu>
   );
 }

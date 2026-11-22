@@ -5,6 +5,7 @@ import { hasCronSecret } from "@/authentication/secrets";
 import { getEnvironment } from "@/configuration/environment";
 import { runJob, type JobName } from "@/services/jobs";
 import { isIsoDate } from "@/utilities/dates";
+import { logError } from "@/utilities/log";
 
 /**
  * GET (Vercel Cron / Cloud Scheduler) and POST (queue) handler for a job.
@@ -48,7 +49,7 @@ export function jobHandler(name: JobName, queryKeys: readonly string[] = []) {
       if (error instanceof ZodError) {
         return NextResponse.json({ ok: false, job: name, error: "Invalid input", issues: error.issues }, { status: 400 });
       }
-      console.error(`${name} job failed`, error);
+      logError(`${name} job failed`, error);
       return NextResponse.json(
         { ok: false, job: name, error: error instanceof Error ? error.message : "Job failed" },
         { status: 500 },

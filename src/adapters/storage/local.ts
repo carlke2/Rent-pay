@@ -1,6 +1,6 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getEnvironment } from "@/configuration/environment";
 import { assertSafeKey, type FileStorage } from "./types";
@@ -52,5 +52,17 @@ export const localStorage: FileStorage = {
     const expires = Math.floor(Date.now() / 1000) + expiresInSeconds;
     const base = getEnvironment().APP_URL.replace(/\/+$/, "");
     return `${base}/api/files/${key}?expires=${expires}&signature=${sign(key, expires)}`;
+  },
+  async get(key) {
+    try {
+      return await readLocalFile(key);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw error;
+    }
+  },
+  async delete(key) {
+    const target = filePath(key);
+    await Promise.all([rm(target, { force: true }), rm(`${target}.type`, { force: true })]);
   },
 };

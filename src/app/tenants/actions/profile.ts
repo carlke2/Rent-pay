@@ -1,10 +1,15 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ActionState } from "@/components/shared/action-types";
+import { AVATAR_MAX_BYTES, removeTenantAvatar, setTenantAvatar } from "@/services/avatars";
+import { ServiceError } from "@/services/errors";
 import { confirmPhoneChange, requestPhoneChange, setWhatsappOptIn } from "@/services/portal";
 import { normaliseKenyanPhone } from "@/utilities/phone";
+import { currentTenantLease } from "../current-lease";
 import { runTenantAction } from "./run";
+import { logError } from "@/utilities/log";
 
 const phoneFields = {
   field: z.enum(["phone", "alternativePhone"], { error: "Choose which number to change" }),
@@ -31,4 +36,38 @@ export async function setWhatsappAction(_state: ActionState, formData: FormData)
     await setWhatsappOptIn(tenantId, optIn === "true");
     return { message: optIn === "true" ? "WhatsApp messages turned on" : "WhatsApp messages turned off" };
   });
+}
+
+/** Profile photo: the browser has already resized it; the server re-validates and normalises it (see services/avatars). */
+export async function uploadAvatarAction(_state: ActionState, formData: FormData): Promise<ActionState> {
+  const { tenantId } = await currentTenantLease();
+  const at = Date.now();
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) return { status: "error", message: "Choose a photo first.", at };
+  if (file.size > AVATAR_MAX_BYTES) return { status: "error", message: "The photo must be 4 MB or smaller.", at };
+  try {
+    const url = await setTenantAvatar(tenantId, new Uint8Array(await file.arrayBuffer()));
+    revalidatePath("/tenants", "layout");
+    revalidatePath("/admin/tenants", "layout");
+    return { status: "success", message: "Photo updated", data: { url }, at };
+  } catch (error) {
+    if (error instanceof ServiceError) return { status: "error", message: error.message, at };
+    logError("Avatar upload failed", error);
+    return { status: "error", message: "We couldn't save your photo. Please try again.", at };
+  }
+}
+
+export async function removeAvatarAction(_state: ActionState, _formData: FormData): Promise<ActionState> {
+  const { tenantId } = await currentTenantLease();
+  const at = Date.now();
+  try {
+    await removeTenantAvatar(tenantId, `tenant:${tenantId}`);
+    revalidatePath("/tenants", "layout");
+    revalidatePath("/admin/tenants", "layout");
+    return { status: "success", message: "Photo removed", at };
+  } catch (error) {
+    if (error instanceof ServiceError) return { status: "error", message: error.message, at };
+    logError("Avatar removal failed", error);
+    return { status: "error", message: "We couldn't remove your photo. Please try again.", at };
+  }
 }

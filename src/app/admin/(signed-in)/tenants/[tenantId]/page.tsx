@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { waiveChargeAction } from "@/app/admin/actions/billing";
 import { recordPaymentAction, sendStatementAction } from "@/app/admin/actions/payments";
 import { SendReminderButton } from "@/components/admin/send-reminder-button";
+import { removeTenantAvatarAction } from "@/app/admin/actions/tenancy";
+import { Avatar } from "@/components/shared/avatar";
 import { updateTenantAction } from "@/app/admin/actions/property";
 import { ActionForm } from "@/components/shared/action-form";
 import { DetailList, Panel } from "@/components/shared/detail-list";
@@ -16,6 +18,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { getLeaseStatement, listInvoicesForLease, listOpenLines } from "@/services/billing";
 import { listMessages } from "@/services/notifications";
 import { listPaymentRequests, listPayments } from "@/services/payments";
+import { avatarUrl } from "@/services/avatars";
 import { getTenantDetail } from "@/services/tenancy";
 import { formatDate, formatNairobiDateTime, formatPeriod, isIsoDate, startOfNairobiDay, todayInNairobi } from "@/utilities/dates";
 import { cn } from "@/utilities/class-names";
@@ -56,8 +59,20 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
         title={tenant.fullName}
         description={lease ? `${lease.unitCode} · ${lease.buildingName}` : "No lease"}
         back={{ href: "/admin/tenants", label: "Tenants" }}
+        leading={<Avatar name={tenant.fullName} src={avatarUrl(tenant.id, tenant.avatarKey)} className="size-14 text-lg" alt={tenant.avatarKey ? `${tenant.fullName}'s photo` : ""} />}
         actions={
           <>
+            {tenant.avatarKey ? (
+              // The landlord can take a photo down, never upload one: only the tenant sets their photo.
+              <ActionForm
+                action={removeTenantAvatarAction}
+                submitLabel="Remove photo"
+                submitVariant="outline"
+                inline
+                confirm={{ title: "Remove this tenant's photo?", description: "The photo is deleted. The tenant can upload a new one from their profile.", confirmLabel: "Remove photo", destructive: true }}
+                fields={[{ name: "tenantId", label: "", type: "hidden", defaultValue: tenant.id }]}
+              />
+            ) : null}
             {lease && isCurrent ? <SendReminderButton leaseId={lease.leaseId} sentToday={remindedToday} variant="default" /> : null}
             {lease ? (
               <ActionForm

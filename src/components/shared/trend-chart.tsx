@@ -3,17 +3,13 @@
 import { useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from "recharts";
 import { cn } from "@/utilities/class-names";
-import { ChartContainer, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "../shared/ui/chart";
+import { ChartContainer, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "./ui/chart";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-const config: ChartConfig = {
-  collected: { label: "Collected", color: "var(--chart-collected)" },
-  expected: { label: "Expected", color: "var(--chart-expected)", dashed: true },
-};
-
-type Point = { period: string; collected: number; expected: number };
+/** One month: `actual` is the solid line (collected / paid), `target` the dashed one (expected / billed). */
+export type TrendPoint = { period: string; actual: number; target: number };
 
 const monthLabel = (period: string) => MONTHS[Number(period.slice(5, 7)) - 1] ?? period;
 const longLabel = (period: string) => `${LONG_MONTHS[Number(period.slice(5, 7)) - 1] ?? ""} ${period.slice(0, 4)}`;
@@ -28,21 +24,47 @@ function niceMaximum(value: number) {
   return step * magnitude;
 }
 
-/** Collected (solid white) vs expected (dashed grey) per month, with the selected month shaded. */
-export function CollectionsChart({ points, selectedPeriod }: { points: Point[]; selectedPeriod: string }) {
+/**
+ * Monthly trend shared by the landlord overview (collected vs expected) and the tenant overview (paid vs billed):
+ * actual is the solid line, target the dashed one, and the selected month is shaded.
+ */
+export function TrendChart({
+  title,
+  points,
+  selectedPeriod,
+  labels,
+  rangeToggle = false,
+  emptyText = "Nothing to show yet.",
+}: {
+  title: string;
+  points: TrendPoint[];
+  selectedPeriod: string;
+  labels: { actual: string; target: string };
+  /** "Last 12 months" / "This year" switch (the landlord's 12-month view). */
+  rangeToggle?: boolean;
+  emptyText?: string;
+}) {
   const [range, setRange] = useState<"twelve" | "year">("twelve");
-  const shown = range === "twelve" ? points : points.filter((point) => point.period.slice(0, 4) === selectedPeriod.slice(0, 4));
-  const maximum = niceMaximum(Math.max(0, ...shown.flatMap((point) => [point.collected, point.expected])));
+  const config: ChartConfig = {
+    actual: { label: labels.actual, color: "var(--chart-collected)" },
+    target: { label: labels.target, color: "var(--chart-expected)", dashed: true },
+  };
+  const shown = range === "twelve" || !rangeToggle ? points : points.filter((point) => point.period.slice(0, 4) === selectedPeriod.slice(0, 4));
+  const maximum = niceMaximum(Math.max(0, ...shown.flatMap((point) => [point.actual, point.target])));
   const data = shown.map((point) => ({ ...point, label: monthLabel(point.period), highlight: point.period === selectedPeriod ? maximum : 0 }));
-  const summary = shown.map((point) => `${longLabel(point.period)}: collected ${shillings(point.collected)}, expected ${shillings(point.expected)}`).join("; ");
+  const showDots = shown.length <= 2 ? { r: 4, strokeWidth: 0, fill: "var(--color-actual)" } : false;
+  const summary = shown
+    .map((point) => `${longLabel(point.period)}: ${labels.actual.toLowerCase()} ${shillings(point.actual)}, ${labels.target.toLowerCase()} ${shillings(point.target)}`)
+    .join("; ");
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-heading">Collections</h2>
+          <h2 className="text-lg font-semibold text-heading">{title}</h2>
           <ChartLegendContent config={config} className="mt-1" />
         </div>
+        {rangeToggle ? (
         <div role="group" aria-label="Chart range" className="inline-flex rounded-lg border border-border-strong p-0.5">
           {(
             [
@@ -61,8 +83,12 @@ export function CollectionsChart({ points, selectedPeriod }: { points: Point[]; 
             </button>
           ))}
         </div>
+        ) : null}
       </div>
-      <p className="sr-only">{summary}</p>
+      <p className="sr-only">{summary || emptyText}</p>
+      {shown.length === 0 ? (
+        <p className="grid h-[260px] place-items-center text-sm text-muted-foreground sm:h-[300px]">{emptyText}</p>
+      ) : (
       <ChartContainer config={config} className="aspect-auto h-[260px] w-full sm:h-[300px]" aria-hidden>
         <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap={4}>
           <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="4 4" />
@@ -84,10 +110,11 @@ export function CollectionsChart({ points, selectedPeriod }: { points: Point[]; 
               />
             )}
           />
-          <Line dataKey="expected" type="monotone" stroke="var(--color-expected)" strokeWidth={2.5} strokeDasharray="6 6" dot={false} animationDuration={500} activeDot={{ r: 4, strokeWidth: 0, fill: "var(--color-expected)" }} />
-          <Line dataKey="collected" type="monotone" stroke="var(--color-collected)" strokeWidth={3} dot={false} animationDuration={500} activeDot={{ r: 5, strokeWidth: 2, stroke: "#000", fill: "var(--color-collected)" }} />
+          <Line dataKey="target" type="monotone" stroke="var(--color-target)" strokeWidth={2.5} strokeDasharray="6 6" dot={false} animationDuration={500} activeDot={{ r: 4, strokeWidth: 0, fill: "var(--color-target)" }} />
+          <Line dataKey="actual" type="monotone" stroke="var(--color-actual)" strokeWidth={3} dot={showDots} animationDuration={500} activeDot={{ r: 5, strokeWidth: 2, stroke: "#000", fill: "var(--color-actual)" }} />
         </ComposedChart>
       </ChartContainer>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/components/shared/action-types";
+import { removeTenantAvatar } from "@/services/avatars";
 import { changeRent, giveNotice, moveIn, moveOut, previewMoveIn, previewMoveOut, recordDepositRefund } from "@/services/tenancy";
 import { identifier, isoDate, optionalText, requiredText, runAction, shillings, wholeNumber } from "./run";
 
@@ -117,4 +118,12 @@ export async function moveOutAction(_state: ActionState, formData: FormData) {
   });
   if (result.status === "success") redirect(unitPath);
   return result;
+}
+
+/** The landlord can remove a tenant's photo (e.g. an inappropriate one) but never upload one for them. */
+export async function removeTenantAvatarAction(_state: ActionState, formData: FormData) {
+  return runAction(z.object({ tenantId: identifier("Tenant") }), formData, async ({ tenantId }, { actor }) => {
+    await removeTenantAvatar(tenantId, actor);
+    return { message: "Photo removed" };
+  });
 }

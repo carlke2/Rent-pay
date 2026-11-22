@@ -49,6 +49,7 @@ import {
   sendReceipt,
   sendStkIncomplete,
 } from "./notifications";
+import { logError } from "@/utilities/log";
 
 export type PaymentChannel = "stk" | "paybill" | "bank" | "cash";
 export type CallbackKind = "stk" | "paybill_validation" | "paybill_confirmation";
@@ -124,7 +125,7 @@ export async function processCallback(callbackId: string): Promise<{ skipped: bo
       .update(paymentCallbacks)
       .set({ error: message.slice(0, 2000) })
       .where(eq(paymentCallbacks.id, callbackId))
-      .catch((updateError: unknown) => console.error("Could not save callback error", updateError));
+      .catch((updateError: unknown) => logError("Could not save callback error", updateError));
     throw error;
   }
 }
@@ -607,7 +608,7 @@ export async function checkPendingStkRequests(): Promise<{ checked: number; fail
         break;
       }
       failed += 1;
-      console.error(`STK status check for ${request.id} failed`, error);
+      logError(`STK status check for ${request.id} failed`, error);
     }
   }
 

@@ -10,6 +10,7 @@ import { getDatabase } from "@/database/client";
 import { landlord } from "@/database/schema";
 import { sendLandlordTwoFactorCode } from "@/services/notifications";
 import { maskPhoneInternational } from "@/utilities/phone";
+import { logError } from "@/utilities/log";
 
 export type LandlordLoginState = {
   step: "password" | "code";
@@ -102,7 +103,7 @@ export async function signInLandlord(previous: LandlordLoginState, formData: For
     const valid = await verifyPassword(parsed.data.password, row?.passwordHash ?? (await getDecoyHash()));
     if (row && valid) account = row;
   } catch (error) {
-    console.error("Landlord sign-in failed", error);
+    logError("Landlord sign-in failed", error);
     return { step: "password", next, email, keepSignedIn, error: "We couldn't sign you in right now. Please try again." };
   }
   if (!account) return { step: "password", next, email, keepSignedIn, error: "Email or password is incorrect." };

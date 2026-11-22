@@ -7,6 +7,7 @@ import { requireLandlord } from "@/authentication/roles";
 import type { ActionState } from "@/components/shared/action-types";
 import { ServiceError } from "@/services/errors";
 import { isBillingPeriod, isIsoDate } from "@/utilities/dates";
+import { logError } from "@/utilities/log";
 
 // ---- zod helpers for form fields (FormData values are strings) ----
 
@@ -84,7 +85,7 @@ export async function runAction<Schema extends z.ZodType>(
     if (error instanceof ServiceError || error instanceof RangeError || error instanceof DarajaError) {
       return { status: "error", message: error.message, at };
     }
-    console.error("Landlord action failed", error);
+    logError("Landlord action failed", error);
     return { status: "error", message: "Something went wrong. Please try again.", at };
   }
 }

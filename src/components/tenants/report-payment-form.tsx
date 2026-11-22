@@ -9,13 +9,18 @@ import { FieldError } from "@/components/shared/action-form";
 import { Button } from "@/components/shared/ui/button";
 import { Input } from "@/components/shared/ui/input";
 import { Label } from "@/components/shared/ui/label";
+import { shrinkImage } from "@/components/shared/shrink-image";
 import { useServerForm } from "@/components/shared/use-server-form";
 
-const MAX_BYTES = 5 * 1024 * 1024;
+/** Photos up to this size are sent as they are; bigger ones are shrunk in the browser (Vercel caps bodies at 4.5 MB). */
+const SEND_AS_IS_BYTES = 3.5 * 1024 * 1024;
 
 /** Amount, date, method, reference and an optional slip photo (camera or file, image only, up to 5 MB). */
 export function ReportPaymentForm({ today }: { today: string }) {
-  const { state, pending, onSubmit } = useServerForm(reportPaymentAction);
+  const { state, pending, submit } = useServerForm(reportPaymentAction);
+  /** The slip to send: the chosen photo, or its shrunk copy. */
+  const [slip, setSlip] = useState<File | null>(null);
+  const [preparing, setPreparing] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [slipName, setSlipName] = useState<string | null>(null);
   const [slipError, setSlipError] = useState<string | undefined>(undefined);
@@ -27,6 +32,7 @@ export function ReportPaymentForm({ today }: { today: string }) {
       toast.success(state.message ?? "Sent");
       formRef.current?.reset();
       setSlipName(null);
+      setSlip(null);
     } else if (state.message && !state.fieldErrors) toast.error(state.message);
   }, [state]);
   const error = (name: string) => (name === "slip" ? (slipError ?? state.fieldErrors?.slip) : state.fieldErrors?.[name]);
@@ -35,11 +41,12 @@ export function ReportPaymentForm({ today }: { today: string }) {
     <form
       ref={formRef}
       onSubmit={(event) => {
-        if (slipError) {
-          event.preventDefault();
-          return;
-        }
-        onSubmit(event);
+        event.preventDefault();
+        if (slipError || preparing) return;
+        const data = new FormData(event.currentTarget, (event.nativeEvent as SubmitEvent).submitter);
+        if (slip) data.set("slip", slip);
+        else data.delete("slip");
+        submit(data);
       }}
       className="grid gap-4"
       noValidate
@@ -81,16 +88,35 @@ export function ReportPaymentForm({ today }: { today: string }) {
           type="file"
           accept="image/*"
           className="sr-only"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
+          onChange={async (event) => {
+            const file = event.target.files?.[0] ?? null;
             setSlipName(file?.name ?? null);
-            setSlipError(file && !file.type.startsWith("image/") ? "The slip must be a photo" : file && file.size > MAX_BYTES ? "The photo must be 5 MB or smaller" : undefined);
+            setSlip(null);
+            setSlipError(undefined);
+            if (!file) return;
+            if (!file.type.startsWith("image/")) {
+              setSlipError("The slip must be a photo");
+              return;
+            }
+            if (file.size <= SEND_AS_IS_BYTES) {
+              setSlip(file);
+              return;
+            }
+            setPreparing(true);
+            try {
+              // Long side 2400px keeps the slip's text readable.
+              setSlip(await shrinkImage(file, { maxSide: 2400, targetBytes: SEND_AS_IS_BYTES }));
+            } catch {
+              setSlipError("That photo is too large to send. Take it again or choose a smaller one.");
+            } finally {
+              setPreparing(false);
+            }
           }}
         />
         <FieldError id="claim-slip-error" message={error("slip")} />
       </div>
-      <Button type="submit" size="lg" disabled={pending} className="w-full">
-        {pending ? <Loader2 className="animate-spin" /> : null} Send to landlord
+      <Button type="submit" size="lg" disabled={pending || preparing} className="w-full">
+        {pending || preparing ? <Loader2 className="animate-spin" /> : null} {preparing ? "Preparing photo…" : "Send to landlord"}
       </Button>
     </form>
   );

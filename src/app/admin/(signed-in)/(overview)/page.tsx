@@ -3,18 +3,18 @@ import Link from "next/link";
 import { ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { ATTENTION_ICONS } from "@/components/admin/attention-icons";
 import { AutoRefresh } from "@/components/admin/auto-refresh";
-import { CollectionsChart } from "@/components/admin/collections-chart";
 import { SendReminderButton } from "@/components/admin/send-reminder-button";
+import { Avatar } from "@/components/shared/avatar";
+import { Amount, dashboardCard as card, dashboardTable, HighlightBadge, HighlightTile, Pill, SectionHeader, StatTile as StatCard } from "@/components/shared/dashboard";
 import { StatusBadge, statusSurfaceClass } from "@/components/shared/status-badge";
+import { TrendChart } from "@/components/shared/trend-chart";
 import { Button } from "@/components/shared/ui/button";
 import { dashboard, type AttentionItem, type BoardUnit } from "@/services/reports";
 import { cn } from "@/utilities/class-names";
 import { currentPeriod, isBillingPeriod } from "@/utilities/dates";
-import { formatAmount, formatShillings } from "@/utilities/money";
+import { formatShillings } from "@/utilities/money";
 
 export const metadata: Metadata = { title: "Overview" };
-
-const card = "rounded-[14px] border bg-card";
 
 export default async function OverviewPage({ searchParams }: PageProps<"/admin">) {
   const query = await searchParams;
@@ -39,18 +39,16 @@ export default async function OverviewPage({ searchParams }: PageProps<"/admin">
       </div>
 
       <section aria-label="This month in numbers" className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-[14px] bg-primary p-5 text-primary-foreground">
-          <p className="text-sm font-medium text-primary-foreground/60">Collected</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Amount value={data.collected.amount} className="text-primary-foreground" />
-            {data.collected.percentOfExpected !== null ? (
-              <span className="rounded-full bg-primary-foreground px-2.5 py-0.5 text-xs font-semibold text-primary numbers">{data.collected.percentOfExpected}%</span>
-            ) : null}
-          </div>
-          <p className="mt-2 text-xs text-primary-foreground/60">
-            of {formatShillings(data.collected.expected)} expected · {data.collected.paidUnits} of {data.collected.occupied} units paid
-          </p>
-        </div>
+        <HighlightTile
+          label="Collected"
+          value={
+            <>
+              <Amount value={data.collected.amount} className="text-primary-foreground" />
+              {data.collected.percentOfExpected !== null ? <HighlightBadge>{data.collected.percentOfExpected}%</HighlightBadge> : null}
+            </>
+          }
+          note={`of ${formatShillings(data.collected.expected)} expected · ${data.collected.paidUnits} of ${data.collected.occupied} units paid`}
+        />
 
         <StatCard label="Expected" value={<Amount value={data.expected.amount} />} note={`Rent, water and charges · ${data.expected.occupied} occupied ${data.expected.occupied === 1 ? "unit" : "units"}`} />
 
@@ -79,7 +77,13 @@ export default async function OverviewPage({ searchParams }: PageProps<"/admin">
 
       <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
         <section aria-label="Collections chart" className={cn(card, "min-w-0 p-5")}>
-          <CollectionsChart points={data.trend} selectedPeriod={data.period} />
+          <TrendChart
+            title="Collections"
+            labels={{ actual: "Collected", target: "Expected" }}
+            points={data.trend.map((point) => ({ period: point.period, actual: point.collected, target: point.expected }))}
+            selectedPeriod={data.period}
+            rangeToggle
+          />
         </section>
         <NeedsAttention items={data.attention.items} total={data.attention.total} />
       </div>
@@ -91,43 +95,9 @@ export default async function OverviewPage({ searchParams }: PageProps<"/admin">
   );
 }
 
-function Amount({ value, className }: { value: number; className?: string }) {
-  return (
-    <span className={cn("numbers text-[28px] leading-none font-semibold tracking-[-0.02em] text-heading", className)}>
-      <span className="mr-1 text-base font-medium opacity-60">KES</span>
-      {formatAmount(value)}
-    </span>
-  );
-}
 
-function Pill({ tone, children }: { tone: "paid" | "overdue"; children: React.ReactNode }) {
-  return <span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-semibold numbers", statusSurfaceClass(tone))}>{children}</span>;
-}
 
-function StatCard({ label, value, pill, note }: { label: string; value: React.ReactNode; pill?: React.ReactNode; note: string }) {
-  return (
-    <div className={cn(card, "p-5")}>
-      <p className="text-sm font-medium text-text-secondary">{label}</p>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        {value}
-        {pill}
-      </div>
-      <p className="mt-2 text-xs text-muted-foreground">{note}</p>
-    </div>
-  );
-}
 
-function SectionHeader({ title, count, action }: { title: string; count?: number; action?: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <h2 className="flex items-center gap-2 text-lg font-semibold text-heading">
-        {title}
-        {count ? <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground numbers">{count}</span> : null}
-      </h2>
-      {action}
-    </div>
-  );
-}
 
 function NeedsAttention({ items, total }: { items: AttentionItem[]; total: number }) {
   return (
@@ -192,15 +162,6 @@ function AttentionAction({ item }: { item: AttentionItem }) {
 
 type LatestPayment = Awaited<ReturnType<typeof dashboard>>["latestPayments"][number];
 
-function initialsOf(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0))
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 function LatestPayments({ payments }: { payments: LatestPayment[] }) {
   return (
@@ -261,7 +222,7 @@ function LatestPayments({ payments }: { payments: LatestPayment[] }) {
         <div className="relative hidden overflow-x-auto md:block">
           <table className="w-full min-w-[880px] text-sm">
             <thead>
-              <tr className="border-y bg-surface-sunken text-left text-xs font-medium text-muted-foreground">
+              <tr className={dashboardTable.headRow}>
                 <th scope="col" className="px-5 py-2.5 font-medium">Receipt</th>
                 <th scope="col" className="px-3 py-2.5 font-medium">Tenant</th>
                 <th scope="col" className="px-3 py-2.5 font-medium">Unit</th>
@@ -280,9 +241,7 @@ function LatestPayments({ payments }: { payments: LatestPayment[] }) {
                   <td className="px-5 py-3 font-medium text-heading numbers">{payment.mpesaReceipt ?? payment.receiptNumber ?? "–"}</td>
                   <td className="px-3 py-3">
                     <span className="flex items-center gap-2.5">
-                      <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-raised text-xs font-semibold text-heading ring-1 ring-border-strong">
-                        {initialsOf(payment.name) || "?"}
-                      </span>
+                      <Avatar name={payment.name} className="size-8 text-xs" />
                       <span className="whitespace-nowrap">{payment.name}</span>
                     </span>
                   </td>
