@@ -1,164 +1,84 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ChartColumn, Download } from "lucide-react";
+import { ChartColumn, FileSpreadsheet, FileText } from "lucide-react";
+import { ReportPaper } from "@/components/reports/report-paper";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar, type FilterField } from "@/components/shared/filter-bar";
 import { LinkTabs } from "@/components/shared/link-tabs";
-import { Money } from "@/components/shared/money";
 import { PageHeader } from "@/components/shared/page-header";
-import { ListAnchor, Pagination } from "@/components/shared/pagination";
-import { PrintPageButton } from "@/components/shared/print-page-button";
-import { ResponsiveTable } from "@/components/shared/responsive-table";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/shared/ui/button";
-import { REPORT_NAMES, runReport, type ReportName } from "@/services/reports";
-import { listBuildings } from "@/services/tenancy";
-import { currentPeriod, firstDayOfPeriod, isBillingPeriod, isIsoDate, todayInNairobi } from "@/utilities/dates";
-import { readPageRequest, slicePage } from "@/utilities/pagination";
+import { buildReport, isReportSlug, readReportParameters, reportQuery, REPORTS, ReportNeedsInput, statementLeaseOptions } from "@/reports";
+import { ReportTotalsError } from "@/reports/document";
+import { adminShellSummary } from "@/services/reports";
 
 export const metadata: Metadata = { title: "Reports" };
 
-const TITLES: Record<ReportName, string> = {
-  "collection-summary": "Collection",
-  "arrears-aging": "Arrears aging",
-  occupancy: "Occupancy",
-  "income-and-expenses": "Income & expenses",
-  "rental-income-for-tax": "Rental income (tax)",
-  "payment-log": "Payment log",
-  "deposit-register": "Deposits",
-};
-
-const MONEY_KEYS = new Set([
-  "billed", "paid", "open", "waived", "current", "days1To30", "days31To60", "days61To90", "over90", "total", "rentLost", "income",
-  "expenses", "net", "received", "deposits", "grossRent", "estimatedTax", "amount", "charged", "held", "applied", "refundDue", "refunded", "stillToRefund",
-]);
-const STATUS_KEYS = new Set(["status", "leaseStatus", "unitStatus", "matchStatus"]);
-const HIDDEN_KEYS = new Set(["receiptVoided"]);
-
-const humanise = (key: string) =>
-  key
-    .replace(/([A-Z])/g, " $1")
-    .replace(/(\d+)/g, " $1")
-    .replace(/^./, (letter) => letter.toUpperCase())
-    .replace(/ To /g, "–")
-    .trim();
-
-function renderValue(key: string, value: unknown) {
-  if (value === null || value === undefined || value === "") return "–";
-  if (MONEY_KEYS.has(key) && typeof value === "number") return <Money amount={value} />;
-  if (STATUS_KEYS.has(key) && typeof value === "string") return <StatusBadge status={value} />;
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  return String(value);
-}
-
 export default async function ReportsPage({ searchParams }: PageProps<"/admin/reports">) {
   const query = await searchParams;
-  const report = REPORT_NAMES.find((name) => name === query.report) ?? "collection-summary";
-  const today = todayInNairobi();
-  const text = (key: string) => (typeof query[key] === "string" ? (query[key] as string) : undefined);
-  const date = (key: string) => (text(key) && isIsoDate(text(key) as string) ? text(key) : undefined);
-  const parameters: Record<string, string | undefined> = {
-    period: text("period") && isBillingPeriod(text("period") as string) ? text("period") : undefined,
-    buildingId: text("buildingId") || undefined,
-    from: date("from"),
-    to: date("to"),
-    date: date("date"),
-    year: text("year") && /^\d{4}$/.test(text("year") as string) ? text("year") : undefined,
-  };
-  const [result, buildings] = await Promise.all([runReport(report, parameters), listBuildings()]);
-  const buildingField: FilterField = {
-    name: "buildingId",
-    label: "Building",
-    type: "select",
-    value: parameters.buildingId,
-    options: [{ value: "", label: "All buildings" }, ...buildings.map((building) => ({ value: building.id, label: building.name }))],
-  };
-  const filters: Record<ReportName, FilterField[]> = {
-    "collection-summary": [{ name: "period", label: "Month", type: "month", value: parameters.period ?? currentPeriod() }, buildingField],
-    "arrears-aging": [{ name: "date", label: "As of", type: "date", value: parameters.date ?? today }, buildingField],
-    occupancy: [
-      { name: "from", label: "From", type: "date", value: parameters.from ?? firstDayOfPeriod(currentPeriod()) },
-      { name: "to", label: "To", type: "date", value: parameters.to ?? today },
-    ],
-    "income-and-expenses": [
-      { name: "from", label: "From", type: "date", value: parameters.from ?? `${today.slice(0, 4)}-01-01` },
-      { name: "to", label: "To", type: "date", value: parameters.to ?? today },
-      buildingField,
-    ],
-    "rental-income-for-tax": [{ name: "year", label: "Year", type: "text", value: parameters.year ?? today.slice(0, 4) }],
-    "payment-log": [
-      { name: "from", label: "From", type: "date", value: parameters.from ?? firstDayOfPeriod(currentPeriod()) },
-      { name: "to", label: "To", type: "date", value: parameters.to ?? today },
-    ],
-    "deposit-register": [],
-  };
-  // 25 rows a page on screen; ?view=all shows every row (for printing). The CSV export always has every row.
-  const showAll = query.view === "all";
-  const page = slicePage(result.rows, showAll ? 1 : readPageRequest(query).page, showAll ? Math.max(1, result.rows.length) : undefined);
-  const rows = page.rows;
-  const keys = rows[0] ? Object.keys(rows[0]).filter((key) => !HIDDEN_KEYS.has(key)) : [];
-  const allQuery = new URLSearchParams(Object.entries(query).filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[0] !== "page"));
-  allQuery.set("view", "all");
-  const exportQuery = new URLSearchParams(
-    Object.entries({ report: report as string, ...parameters }).filter((entry): entry is [string, string] => Boolean(entry[1])),
-  );
-  const totals = result.totals ? Object.entries(result.totals) : [];
+  const slug = isReportSlug(query.report) ? query.report : "payments-received";
+  const report = REPORTS.find((item) => item.slug === slug)!;
+  const parameters = readReportParameters(slug, query);
+  const filters = report.filters as readonly string[];
+
+  const [result, { buildings }, leaseOptions] = await Promise.all([
+    buildReport(slug, parameters).then(
+      (document) => ({ document, error: null }),
+      (error: unknown) => {
+        if (error instanceof ReportNeedsInput || error instanceof RangeError || error instanceof ReportTotalsError) return { document: null, error };
+        throw error;
+      },
+    ),
+    adminShellSummary(),
+    filters.includes("lease") ? statementLeaseOptions() : Promise.resolve([]),
+  ]);
+
+  const fields: FilterField[] = [];
+  if (filters.includes("lease"))
+    fields.push({ name: "leaseId", label: "Tenant", type: "select", value: parameters.leaseId ?? "", options: [{ value: "", label: "Choose a tenant" }, ...leaseOptions.map((lease) => ({ value: lease.id, label: lease.label }))] });
+  if (filters.includes("period")) fields.push({ name: "period", label: "Month", type: "month", value: parameters.period });
+  if (filters.includes("from")) fields.push({ name: "from", label: "From", type: "date", value: parameters.from });
+  if (filters.includes("to")) fields.push({ name: "to", label: "To", type: "date", value: parameters.to });
+  if (filters.includes("year")) fields.push({ name: "year", label: "Year", type: "text", value: String(parameters.year) });
+  if (filters.includes("building"))
+    fields.push({ name: "buildingId", label: "Building", type: "select", value: parameters.buildingId ?? "", options: [{ value: "", label: "All buildings" }, ...buildings.map((building) => ({ value: building.id, label: building.name }))] });
+
+  const exportQuery = reportQuery(slug, parameters);
+  const document = result.document;
 
   return (
     <>
       <PageHeader
-        title={TITLES[report]}
-        description={report === "rental-income-for-tax" ? `Estimated Monthly Rental Income tax at ${String(result.taxRatePercent)}%. Check the current KRA rate before filing.` : undefined}
+        title="Reports"
         actions={
-          <>
-            {!showAll && page.info.pageCount > 1 ? (
-              // Printing one page would leave rows out: print from the view with every row.
+          document ? (
+            <>
               <Button asChild size="sm" variant="outline">
-                <Link href={`/admin/reports?${allQuery.toString()}`} prefetch={false} className="text-foreground no-underline">Show all {page.info.total} rows to print</Link>
+                <a href={`/admin/print?${exportQuery}&auto=1`} target="_blank" rel="noopener" className="text-foreground no-underline">
+                  <FileText /> Export PDF
+                </a>
               </Button>
-            ) : (
-              <PrintPageButton />
-            )}
-            <Button asChild size="sm" variant="outline">
-              <a href={`/admin/reports/export?${exportQuery.toString()}`} className="text-foreground no-underline">
-                <Download /> CSV
-              </a>
-            </Button>
-          </>
+              <Button asChild size="sm" variant="outline">
+                <a href={`/admin/reports/export?${exportQuery}`} className="text-foreground no-underline">
+                  <FileSpreadsheet /> Excel
+                </a>
+              </Button>
+            </>
+          ) : undefined
         }
       />
-      <LinkTabs label="Reports" active={report} tabs={REPORT_NAMES.map((name) => ({ value: name, label: TITLES[name], href: `/admin/reports?report=${name}` }))} />
-      {filters[report].length ? <FilterBar hidden={{ report }} fields={filters[report]} /> : null}
+      <LinkTabs label="Reports" active={slug} tabs={REPORTS.map((item) => ({ value: item.slug, label: item.label, href: `/admin/reports?report=${item.slug}` }))} />
+      {fields.length ? <FilterBar hidden={{ report: slug }} fields={fields} /> : null}
 
-      {totals.length ? (
-        <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {totals.map(([key, value]) => (
-            <div key={key} className="rounded-xl border bg-card p-3">
-              <p className="text-xs text-muted-foreground">{humanise(key)}</p>
-              <p className="numbers font-semibold">{MONEY_KEYS.has(key) && typeof value === "number" ? <Money amount={value} /> : key.endsWith("Rate") ? `${value ?? "–"}%` : String(value ?? "–")}</p>
-            </div>
-          ))}
-        </section>
-      ) : null}
-
-      <ListAnchor id="report-rows">
-        {rows.length === 0 ? (
-          <EmptyState icon={ChartColumn} title="Nothing to show for these filters" />
-        ) : (
-          <ResponsiveTable
-            rows={rows}
-            rowKey={(row) => JSON.stringify(row)}
-            columns={keys.map((key, index) => ({
-              key,
-              header: humanise(key),
-              primary: index === 0,
-              align: MONEY_KEYS.has(key) || typeof rows[0]?.[key] === "number" ? ("right" as const) : ("left" as const),
-              cell: (row: Record<string, unknown>) => renderValue(key, row[key]),
-            }))}
-          />
-        )}
-        {!showAll && rows.length > 0 ? <Pagination info={page.info} params={query} pathname="/admin/reports" anchor="report-rows" omit={["view"]} /> : null}
-      </ListAnchor>
+      {document ? (
+        <div className="-mx-4 overflow-hidden bg-zinc-200 px-0 py-4 sm:mx-0 sm:rounded-xl sm:p-6 dark:bg-zinc-900">
+          <ReportPaper document={document} />
+        </div>
+      ) : (
+        <EmptyState
+          icon={ChartColumn}
+          title={result.error instanceof ReportTotalsError ? "This report did not add up, so it was not shown" : result.error instanceof Error ? result.error.message : "Nothing to show"}
+          description={result.error instanceof ReportTotalsError ? result.error.message : undefined}
+        />
+      )}
     </>
   );
 }
