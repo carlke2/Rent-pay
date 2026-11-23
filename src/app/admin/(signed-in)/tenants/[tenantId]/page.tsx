@@ -10,18 +10,20 @@ import { updateTenantAction } from "@/app/admin/actions/property";
 import { ActionForm } from "@/components/shared/action-form";
 import { DetailList, Panel } from "@/components/shared/detail-list";
 import { FilterBar } from "@/components/shared/filter-bar";
+import { Pagination } from "@/components/shared/pagination";
 import { Money } from "@/components/shared/money";
 import { PageHeader } from "@/components/shared/page-header";
 import { PaidByOtherNote } from "@/components/shared/paid-by-other";
 import { ResponsiveTable } from "@/components/shared/responsive-table";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { getLeaseStatement, listInvoicesForLease, listOpenLines } from "@/services/billing";
-import { listMessages } from "@/services/notifications";
-import { listPaymentRequests, listPayments } from "@/services/payments";
+import { getLeaseStatementPage, listInvoicesForLease, listOpenLines } from "@/services/billing";
+import { listMessages, pageMessages } from "@/services/notifications";
+import { pagePaymentRequests, pagePayments } from "@/services/payments";
 import { avatarUrl } from "@/services/avatars";
 import { getTenantDetail } from "@/services/tenancy";
 import { formatDate, formatNairobiDateTime, formatPeriod, isIsoDate, startOfNairobiDay, todayInNairobi } from "@/utilities/dates";
 import { cn } from "@/utilities/class-names";
+import { readPageRequest, slicePage } from "@/utilities/pagination";
 
 export const metadata: Metadata = { title: "Tenant" };
 
@@ -36,19 +38,26 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
   const from = typeof query.from === "string" && isIsoDate(query.from) ? query.from : undefined;
   const to = typeof query.to === "string" && isIsoDate(query.to) ? query.to : undefined;
 
-  const [statement, invoiceRows, payments, requests, messages, openLines] = lease
+  // Each list on this page pages on its own (ledger_page, inv_page, pay_page, req_page, msg_page in the URL).
+  const [statement, allInvoices, paymentPage, requestPage, messagePage, recentReminders, openLines] = lease
     ? await Promise.all([
-        getLeaseStatement({ leaseId: lease.leaseId, from, to }),
+        getLeaseStatementPage({ leaseId: lease.leaseId, from, to }, readPageRequest(query, "ledger")),
         listInvoicesForLease(lease.leaseId),
-        listPayments({ leaseId: lease.leaseId, limit: 50 }),
-        listPaymentRequests({ leaseId: lease.leaseId }),
-        listMessages({ leaseId: lease.leaseId, limit: 30 }),
+        pagePayments({ leaseId: lease.leaseId }, readPageRequest(query, "pay")),
+        pagePaymentRequests({ leaseId: lease.leaseId }, readPageRequest(query, "req")),
+        pageMessages({ leaseId: lease.leaseId }, readPageRequest(query, "msg")),
+        listMessages({ leaseId: lease.leaseId, template: "reminder_manual", limit: 5 }),
         listOpenLines(lease.leaseId),
       ])
-    : [null, [], [], [], [], []];
+    : [null, [], null, null, null, [], []];
+  const invoicePage = slicePage(allInvoices, readPageRequest(query, "inv").page);
+  const invoiceRows = invoicePage.rows;
+  const payments = paymentPage?.rows ?? [];
+  const requests = requestPage?.rows ?? [];
+  const messages = messagePage?.rows ?? [];
   const isCurrent = lease && lease.status !== "ended";
   const startOfToday = startOfNairobiDay(today).getTime();
-  const remindedToday = messages.some(
+  const remindedToday = recentReminders.some(
     (message) => message.template === "reminder_manual" && ["sent", "delivered", "queued"].includes(message.status) && new Date(message.createdAt).getTime() >= startOfToday,
   );
   const localPhone = `0${tenant.phone.slice(3)}`;
@@ -175,7 +184,7 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
       </div>
 
       {statement ? (
-        <Panel title="Statement" className="mt-4">
+        <Panel title="Statement" className="mt-4" id="tenant-ledger">
           <FilterBar
             hidden={{ lease: lease?.leaseId }}
             fields={[
@@ -202,11 +211,14 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
               Closing balance <Money amount={statement.closingBalance} balance className="font-semibold" />
             </span>
           </div>
+          {statement.entries.length > 0 ? (
+            <Pagination info={statement.info} params={query} pathname={`/admin/tenants/${tenant.id}`} anchor="tenant-ledger" prefix="ledger" firstCursor={statement.firstCursor} lastCursor={statement.lastCursor} />
+          ) : null}
         </Panel>
       ) : null}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Panel title="Invoices">
+        <Panel title="Invoices" id="tenant-invoices">
           {invoiceRows.length === 0 ? (
             <p className="text-sm text-muted-foreground">No invoices.</p>
           ) : (
@@ -221,8 +233,9 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
               ]}
             />
           )}
+          {invoiceRows.length > 0 ? <Pagination info={invoicePage.info} params={query} pathname={`/admin/tenants/${tenant.id}`} anchor="tenant-invoices" prefix="inv" /> : null}
         </Panel>
-        <Panel title="Receipts">
+        <Panel title="Receipts" id="tenant-payments">
           {payments.length === 0 ? (
             <p className="text-sm text-muted-foreground">No payments.</p>
           ) : (
@@ -247,8 +260,11 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
               ]}
             />
           )}
+          {paymentPage && payments.length > 0 ? (
+            <Pagination info={paymentPage.info} params={query} pathname={`/admin/tenants/${tenant.id}`} anchor="tenant-payments" prefix="pay" firstCursor={paymentPage.firstCursor} lastCursor={paymentPage.lastCursor} />
+          ) : null}
         </Panel>
-        <Panel title="Payment requests">
+        <Panel title="Payment requests" id="tenant-requests">
           {requests.length === 0 ? (
             <p className="text-sm text-muted-foreground">No M-Pesa requests.</p>
           ) : (
@@ -263,8 +279,9 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
               ]}
             />
           )}
+          {requestPage && requests.length > 0 ? <Pagination info={requestPage.info} params={query} pathname={`/admin/tenants/${tenant.id}`} anchor="tenant-requests" prefix="req" /> : null}
         </Panel>
-        <Panel title="Messages">
+        <Panel title="Messages" id="tenant-messages">
           {messages.length === 0 ? (
             <p className="text-sm text-muted-foreground">No messages.</p>
           ) : (
@@ -280,6 +297,7 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
               ))}
             </ul>
           )}
+          {messagePage && messages.length > 0 ? <Pagination info={messagePage.info} params={query} pathname={`/admin/tenants/${tenant.id}`} anchor="tenant-messages" prefix="msg" /> : null}
         </Panel>
       </div>
     </>

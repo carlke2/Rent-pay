@@ -15,6 +15,8 @@ import {
 import { allocatePayment, chargeEntries, accountForLine, type OpenInvoiceLine } from "@/core/ledger";
 import type { InvoiceLineType, PolicySettings } from "@/core/policy";
 import { getDatabase, type Executor, type Transaction } from "@/database/client";
+import { fetchKeysetPage, type KeysetKey } from "@/database/keyset";
+import type { PageRequest } from "@/utilities/pagination";
 import {
   allocations,
   auditLog,
@@ -607,7 +609,7 @@ export async function queueNotification(kind: "invoice" | "penalty", id: string)
   }
 }
 
-type InvoiceStatus = "paid" | "partial" | "unpaid" | "overdue";
+export type InvoiceStatus = "paid" | "partial" | "unpaid" | "overdue";
 
 /** Invoices with their lines, open amounts and status (for the sandbox and later screens). */
 export async function listInvoices(input: { period: BillingPeriod; today?: IsoDate; buildingId?: string | null }) {
@@ -1016,6 +1018,103 @@ export async function getLeaseStatement(input: { leaseId: string; from?: IsoDate
     return { ...entry, balance: running };
   });
   return { leaseId: lease.id, unitCode: lease.unitCode, from, to, openingBalance, entries: lines, closingBalance: running };
+}
+
+/** Ledger sort (oldest first): date, then entry time, charges before credits within one moment, then id. */
+const LEDGER_KEYS: KeysetKey[] = [
+  { expression: sql`${ledgerEntries.entryDate}`, cast: "date" },
+  { expression: sql`${ledgerEntries.createdAt}`, cast: "timestamptz" },
+  { expression: sql`(case when ${ledgerEntries.debit} > 0 then 0 else 1 end)`, cast: "int" },
+  { expression: sql`${ledgerEntries.id}`, cast: "uuid" },
+];
+
+/**
+ * One page (25 entries) of a lease statement, oldest first, by keyset. Each row's running balance is right on
+ * every page: it starts from the opening balance plus every earlier entry in the range.
+ */
+export async function getLeaseStatementPage(input: { leaseId: string; from?: IsoDate; to?: IsoDate }, request: PageRequest) {
+  const database = getDatabase();
+  const [lease] = await database
+    .select({ id: leases.id, startDate: leases.startDate, unitCode: units.code })
+    .from(leases)
+    .innerJoin(units, eq(units.id, leases.unitId))
+    .where(eq(leases.id, input.leaseId));
+  if (!lease) throw new BillingError("Lease not found");
+
+  const from = input.from ? assertIsoDate(input.from) : lease.startDate;
+  const to = input.to ? assertIsoDate(input.to) : from > todayInNairobi() ? from : todayInNairobi();
+  if (from > to) throw new BillingError("from must be on or before to");
+  const inRange = and(eq(ledgerEntries.leaseId, lease.id), gte(ledgerEntries.entryDate, from), lte(ledgerEntries.entryDate, to));
+
+  let rangeSum = 0;
+  const [[opening], page] = await Promise.all([
+    database
+      .select({ balance: sql<number>`coalesce(sum(${ledgerEntries.debit} - ${ledgerEntries.credit}), 0)::int` })
+      .from(ledgerEntries)
+      .where(and(eq(ledgerEntries.leaseId, lease.id), lt(ledgerEntries.entryDate, from))),
+    fetchKeysetPage({
+      keys: LEDGER_KEYS,
+      order: "asc",
+      request,
+      count: async () => {
+        const [row] = await database
+          .select({ count: sql<number>`count(*)::int`, sum: sql<number>`coalesce(sum(${ledgerEntries.debit} - ${ledgerEntries.credit}), 0)::int` })
+          .from(ledgerEntries)
+          .where(inRange);
+        rangeSum = row?.sum ?? 0;
+        return row?.count ?? 0;
+      },
+      fetch: (plan) =>
+        database
+          .select({
+            id: ledgerEntries.id,
+            date: ledgerEntries.entryDate,
+            type: ledgerEntries.type,
+            account: ledgerEntries.account,
+            reference: ledgerEntries.reference,
+            debit: ledgerEntries.debit,
+            credit: ledgerEntries.credit,
+            description: invoiceLines.description,
+            cursorCreatedAt: sql<string>`${ledgerEntries.createdAt}::text`,
+          })
+          .from(ledgerEntries)
+          .leftJoin(invoiceLines, eq(invoiceLines.id, ledgerEntries.invoiceLineId))
+          .where(and(inRange, plan.where))
+          .orderBy(...plan.orderBy)
+          .limit(plan.limit)
+          .offset(plan.offset),
+      cursorOf: (row) => [row.date, row.cursorCreatedAt, row.debit > 0 ? "0" : "1", row.id],
+    }),
+  ]);
+
+  const openingBalance = opening?.balance ?? 0;
+  // Everything in the range before this page's first row, so the running balance carries across pages.
+  const firstRow = page.rows[0];
+  let running = openingBalance;
+  if (firstRow) {
+    const columns = sql.join(LEDGER_KEYS.map((key) => key.expression), sql`, `);
+    const [before] = await database
+      .select({ sum: sql<number>`coalesce(sum(${ledgerEntries.debit} - ${ledgerEntries.credit}), 0)::int` })
+      .from(ledgerEntries)
+      .where(and(inRange, sql`(${columns}) < (${firstRow.date}::date, ${firstRow.cursorCreatedAt}::timestamptz, ${firstRow.debit > 0 ? 0 : 1}::int, ${firstRow.id}::uuid)`));
+    running += before?.sum ?? 0;
+  }
+  const entries = page.rows.map(({ cursorCreatedAt: _cursor, ...entry }) => {
+    running += entry.debit - entry.credit;
+    return { ...entry, balance: running };
+  });
+  return {
+    leaseId: lease.id,
+    unitCode: lease.unitCode,
+    from,
+    to,
+    openingBalance,
+    closingBalance: openingBalance + rangeSum,
+    entries,
+    info: page.info,
+    firstCursor: page.firstCursor,
+    lastCursor: page.lastCursor,
+  };
 }
 
 /** Reading flags that still need the landlord (for the daily summary). */

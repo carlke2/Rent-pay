@@ -34,12 +34,16 @@ export function ResponsiveTable<Row>({
   const actions = columns.filter(isAction);
   return (
     <div className={cn("min-w-0", className)}>
-      <div className="hidden min-w-0 overflow-x-auto rounded-xl border bg-card md:block">
-        <Table>
+      <div className="hidden min-w-0 overflow-hidden rounded-xl border bg-card md:block">
+        {/* The table scrolls inside its own box (at most ~70% of the screen) so the header row can stay in view. */}
+        <Table containerClassName="max-h-[min(70vh,52rem)] overflow-auto overscroll-contain">
           <TableHeader>
             <TableRow className="bg-muted/50">
               {columns.map((column) => (
-                <TableHead key={column.key} className={cn("text-xs uppercase tracking-wide text-muted-foreground", column.align === "right" && "text-right")}>
+                <TableHead
+                  key={column.key}
+                  className={cn("sticky top-0 z-10 bg-muted text-xs uppercase tracking-wide text-muted-foreground shadow-[inset_0_-1px_0_var(--border)]", column.align === "right" && "text-right")}
+                >
                   {column.header}
                 </TableHead>
               ))}

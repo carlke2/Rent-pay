@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ChartColumn, Download } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar, type FilterField } from "@/components/shared/filter-bar";
 import { LinkTabs } from "@/components/shared/link-tabs";
 import { Money } from "@/components/shared/money";
 import { PageHeader } from "@/components/shared/page-header";
+import { ListAnchor, Pagination } from "@/components/shared/pagination";
 import { PrintPageButton } from "@/components/shared/print-page-button";
 import { ResponsiveTable } from "@/components/shared/responsive-table";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -12,6 +14,7 @@ import { Button } from "@/components/shared/ui/button";
 import { REPORT_NAMES, runReport, type ReportName } from "@/services/reports";
 import { listBuildings } from "@/services/tenancy";
 import { currentPeriod, firstDayOfPeriod, isBillingPeriod, isIsoDate, todayInNairobi } from "@/utilities/dates";
+import { readPageRequest, slicePage } from "@/utilities/pagination";
 
 export const metadata: Metadata = { title: "Reports" };
 
@@ -89,8 +92,13 @@ export default async function ReportsPage({ searchParams }: PageProps<"/admin/re
     ],
     "deposit-register": [],
   };
-  const rows = result.rows;
+  // 25 rows a page on screen; ?view=all shows every row (for printing). The CSV export always has every row.
+  const showAll = query.view === "all";
+  const page = slicePage(result.rows, showAll ? 1 : readPageRequest(query).page, showAll ? Math.max(1, result.rows.length) : undefined);
+  const rows = page.rows;
   const keys = rows[0] ? Object.keys(rows[0]).filter((key) => !HIDDEN_KEYS.has(key)) : [];
+  const allQuery = new URLSearchParams(Object.entries(query).filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[0] !== "page"));
+  allQuery.set("view", "all");
   const exportQuery = new URLSearchParams(
     Object.entries({ report: report as string, ...parameters }).filter((entry): entry is [string, string] => Boolean(entry[1])),
   );
@@ -103,7 +111,14 @@ export default async function ReportsPage({ searchParams }: PageProps<"/admin/re
         description={report === "rental-income-for-tax" ? `Estimated Monthly Rental Income tax at ${String(result.taxRatePercent)}%. Check the current KRA rate before filing.` : undefined}
         actions={
           <>
-            <PrintPageButton />
+            {!showAll && page.info.pageCount > 1 ? (
+              // Printing one page would leave rows out: print from the view with every row.
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/admin/reports?${allQuery.toString()}`} prefetch={false} className="text-foreground no-underline">Show all {page.info.total} rows to print</Link>
+              </Button>
+            ) : (
+              <PrintPageButton />
+            )}
             <Button asChild size="sm" variant="outline">
               <a href={`/admin/reports/export?${exportQuery.toString()}`} className="text-foreground no-underline">
                 <Download /> CSV
@@ -126,21 +141,24 @@ export default async function ReportsPage({ searchParams }: PageProps<"/admin/re
         </section>
       ) : null}
 
-      {rows.length === 0 ? (
-        <EmptyState icon={ChartColumn} title="Nothing to show for these filters" />
-      ) : (
-        <ResponsiveTable
-          rows={rows}
-          rowKey={(row) => JSON.stringify(row)}
-          columns={keys.map((key, index) => ({
-            key,
-            header: humanise(key),
-            primary: index === 0,
-            align: MONEY_KEYS.has(key) || typeof rows[0]?.[key] === "number" ? ("right" as const) : ("left" as const),
-            cell: (row: Record<string, unknown>) => renderValue(key, row[key]),
-          }))}
-        />
-      )}
+      <ListAnchor id="report-rows">
+        {rows.length === 0 ? (
+          <EmptyState icon={ChartColumn} title="Nothing to show for these filters" />
+        ) : (
+          <ResponsiveTable
+            rows={rows}
+            rowKey={(row) => JSON.stringify(row)}
+            columns={keys.map((key, index) => ({
+              key,
+              header: humanise(key),
+              primary: index === 0,
+              align: MONEY_KEYS.has(key) || typeof rows[0]?.[key] === "number" ? ("right" as const) : ("left" as const),
+              cell: (row: Record<string, unknown>) => renderValue(key, row[key]),
+            }))}
+          />
+        )}
+        {!showAll && rows.length > 0 ? <Pagination info={page.info} params={query} pathname="/admin/reports" anchor="report-rows" omit={["view"]} /> : null}
+      </ListAnchor>
     </>
   );
 }

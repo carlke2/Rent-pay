@@ -67,6 +67,7 @@ export const expenses = pgTable(
   },
   (table) => [
     index("expenses_building_spent_index").on(table.buildingId, table.spentOn),
+    index("expenses_spent_on_index").on(table.spentOn),
     check("expenses_amount_positive", sql`${table.amount} > 0`),
   ],
 ).enableRLS();

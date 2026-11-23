@@ -1,6 +1,8 @@
 import "server-only";
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { getDatabase, type Executor } from "@/database/client";
+import { fetchOffsetPage } from "@/database/keyset";
+import type { PageRequest } from "@/utilities/pagination";
 import { buildings, expenses, units } from "@/database/schema";
 import { assertIsoDate, type IsoDate } from "@/utilities/dates";
 import { writeAudit } from "./audit";
@@ -68,7 +70,17 @@ export async function deleteExpense(input: { expenseId: string; actor: string; r
   });
 }
 
-export async function listExpenses(input: { from?: IsoDate; to?: IsoDate; buildingId?: string | null } = {}) {
+type ExpenseFilter = { from?: IsoDate; to?: IsoDate; buildingId?: string | null };
+
+function expenseConditions(input: ExpenseFilter) {
+  return and(
+    input.from ? gte(expenses.spentOn, assertIsoDate(input.from)) : undefined,
+    input.to ? lte(expenses.spentOn, assertIsoDate(input.to)) : undefined,
+    input.buildingId ? eq(expenses.buildingId, input.buildingId) : undefined,
+  );
+}
+
+function expenseQuery(input: ExpenseFilter) {
   return getDatabase()
     .select({
       id: expenses.id,
@@ -84,12 +96,29 @@ export async function listExpenses(input: { from?: IsoDate; to?: IsoDate; buildi
     .from(expenses)
     .innerJoin(buildings, eq(buildings.id, expenses.buildingId))
     .leftJoin(units, eq(units.id, expenses.unitId))
-    .where(
-      and(
-        input.from ? gte(expenses.spentOn, assertIsoDate(input.from)) : undefined,
-        input.to ? lte(expenses.spentOn, assertIsoDate(input.to)) : undefined,
-        input.buildingId ? eq(expenses.buildingId, input.buildingId) : undefined,
-      ),
-    )
-    .orderBy(desc(expenses.spentOn), desc(expenses.createdAt));
+    .where(expenseConditions(input))
+    .orderBy(desc(expenses.spentOn), desc(expenses.createdAt), desc(expenses.id))
+    .$dynamic();
+}
+
+export async function listExpenses(input: ExpenseFilter = {}) {
+  return expenseQuery(input);
+}
+
+/** One page (25) of expenses, newest first, plus the total spent across every page. */
+export async function pageExpenses(input: ExpenseFilter, request: PageRequest) {
+  let totalAmount = 0;
+  const page = await fetchOffsetPage({
+    request,
+    count: async () => {
+      const [row] = await getDatabase()
+        .select({ count: sql<number>`count(*)::int`, amount: sql<number>`coalesce(sum(${expenses.amount}), 0)::int` })
+        .from(expenses)
+        .where(expenseConditions(input));
+      totalAmount = row?.amount ?? 0;
+      return row?.count ?? 0;
+    },
+    fetch: (limit, offset) => expenseQuery(input).limit(limit).offset(offset),
+  });
+  return { ...page, totalAmount };
 }

@@ -24,6 +24,17 @@ export function ListSkeleton({ rows = 6, cards = false }: { rows?: number; cards
   );
 }
 
+/** Rows only: shown in place of a list while another page of it (or new filters) loads, under the kept header. */
+export function TableSkeleton({ rows = 8 }: { rows?: number }) {
+  return (
+    <div aria-busy="true" aria-label="Loading" className="grid gap-2">
+      {Array.from({ length: rows }, (_, index) => (
+        <Skeleton key={index} className="h-14 rounded-lg" />
+      ))}
+    </div>
+  );
+}
+
 /** Loading placeholder for a detail page: back link, title, actions and two panels. */
 export function DetailSkeleton() {
   return (

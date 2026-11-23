@@ -1,7 +1,7 @@
 import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { and, asc, eq, gte, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, ne, or, sql } from "drizzle-orm";
 import {
   DarajaError,
   paybillCallbackSchema,
@@ -14,6 +14,7 @@ import {
 import { paymentEntry } from "@/core/ledger";
 import { isPaidByOther, matchPayment, normaliseUnitCode, RECENTLY_ENDED_DAYS } from "@/core/payments";
 import { getDatabase, type Transaction } from "@/database/client";
+import { fetchKeysetPage, fetchOffsetPage, type KeysetKey } from "@/database/keyset";
 import {
   allocations,
   auditLog,
@@ -50,6 +51,7 @@ import {
   sendStkIncomplete,
 } from "./notifications";
 import { logError } from "@/utilities/log";
+import type { PageRequest } from "@/utilities/pagination";
 
 export type PaymentChannel = "stk" | "paybill" | "bank" | "cash";
 export type CallbackKind = "stk" | "paybill_validation" | "paybill_confirmation";
@@ -1287,8 +1289,8 @@ export type PaymentListFilter = {
   limit?: number;
 };
 
-export async function listPayments(filter: PaymentListFilter = {}) {
-  const conditions = [
+function paymentConditions(filter: PaymentListFilter) {
+  return [
     filter.status === "unmatched" ? eq(payments.matchStatus, "unmatched") : undefined,
     filter.status === "reversed" ? eq(payments.matchStatus, "reversed") : undefined,
     filter.from ? sql`${payments.paidAt} >= ${startOfNairobiDay(assertIsoDate(filter.from)).toISOString()}::timestamptz` : undefined,
@@ -1297,37 +1299,104 @@ export async function listPayments(filter: PaymentListFilter = {}) {
     filter.channel ? eq(payments.channel, filter.channel) : undefined,
     filter.leaseId ? eq(payments.leaseId, filter.leaseId) : undefined,
   ];
+}
+
+const paymentListColumns = {
+  id: payments.id,
+  paidAt: payments.paidAt,
+  channel: payments.channel,
+  amount: payments.amount,
+  mpesaReceipt: payments.mpesaReceipt,
+  accountReference: payments.accountReference,
+  payerName: payments.payerName,
+  payerPhone: payments.payerPhone,
+  paidByOther: payments.paidByOther,
+  matchStatus: payments.matchStatus,
+  leaseId: payments.leaseId,
+  unitCode: units.code,
+  tenantName: tenants.fullName,
+  tenantId: tenants.id,
+  receiptNumber: receipts.number,
+  receiptToken: receipts.token,
+  receiptVoided: sql<boolean>`${receipts.voidedAt} is not null`,
+};
+
+export async function listPayments(filter: PaymentListFilter = {}) {
   return getDatabase()
-    .select({
-      id: payments.id,
-      paidAt: payments.paidAt,
-      channel: payments.channel,
-      amount: payments.amount,
-      mpesaReceipt: payments.mpesaReceipt,
-      accountReference: payments.accountReference,
-      payerName: payments.payerName,
-      payerPhone: payments.payerPhone,
-      paidByOther: payments.paidByOther,
-      matchStatus: payments.matchStatus,
-      leaseId: payments.leaseId,
-      unitCode: units.code,
-      tenantName: tenants.fullName,
-      tenantId: tenants.id,
-      receiptNumber: receipts.number,
-      receiptToken: receipts.token,
-      receiptVoided: sql<boolean>`${receipts.voidedAt} is not null`,
-    })
+    .select(paymentListColumns)
     .from(payments)
     .leftJoin(leases, eq(leases.id, payments.leaseId))
     .leftJoin(units, eq(units.id, leases.unitId))
     .leftJoin(tenants, eq(tenants.id, leases.tenantId))
     .leftJoin(receipts, eq(receipts.paymentId, payments.id))
-    .where(and(...conditions))
+    .where(and(...paymentConditions(filter)))
     .orderBy(sql`${payments.paidAt} desc`)
     .limit(filter.limit ?? 200);
 }
 
-export async function listPaymentClaims(filter: { status?: "waiting" | "confirmed" | "rejected" | "all"; leaseId?: string } = {}) {
+/** Payments matching the filter (for tab badges). */
+export async function countPayments(filter: Omit<PaymentListFilter, "limit"> = {}): Promise<number> {
+  const query = getDatabase().select({ count: sql<number>`count(*)::int` }).from(payments);
+  const needsUnits = Boolean(filter.buildingId);
+  const [row] = await (needsUnits
+    ? query.leftJoin(leases, eq(leases.id, payments.leaseId)).leftJoin(units, eq(units.id, leases.unitId))
+    : query
+  ).where(and(...paymentConditions(filter)));
+  return row?.count ?? 0;
+}
+
+/** Keyset sort for payment lists: newest paid first, id breaks ties (payments grow fastest). */
+const PAYMENT_KEYS: KeysetKey[] = [
+  { expression: sql`${payments.paidAt}`, cast: "timestamptz" },
+  { expression: sql`${payments.id}`, cast: "uuid" },
+];
+
+/** One page (25) of payments, newest first, with cursors for Previous/Next. */
+export async function pagePayments(filter: Omit<PaymentListFilter, "limit">, request: PageRequest) {
+  return fetchKeysetPage({
+    keys: PAYMENT_KEYS,
+    order: "desc",
+    request,
+    count: () => countPayments(filter),
+    fetch: (plan) =>
+      getDatabase()
+        .select({ ...paymentListColumns, cursorAt: sql<string>`${payments.paidAt}::text` })
+        .from(payments)
+        .leftJoin(leases, eq(leases.id, payments.leaseId))
+        .leftJoin(units, eq(units.id, leases.unitId))
+        .leftJoin(tenants, eq(tenants.id, leases.tenantId))
+        .leftJoin(receipts, eq(receipts.paymentId, payments.id))
+        .where(and(...paymentConditions(filter), plan.where))
+        .orderBy(...plan.orderBy)
+        .limit(plan.limit)
+        .offset(plan.offset),
+    cursorOf: (row) => [row.cursorAt, row.id],
+  });
+}
+
+type ClaimFilter = { status?: "waiting" | "confirmed" | "rejected" | "all"; leaseId?: string };
+
+function claimConditions(filter: ClaimFilter) {
+  return and(
+    filter.status && filter.status !== "all" ? eq(paymentClaims.status, filter.status) : undefined,
+    filter.leaseId ? eq(paymentClaims.leaseId, filter.leaseId) : undefined,
+  );
+}
+
+/** One page (25) of payment claims, newest first. */
+export async function pagePaymentClaims(filter: ClaimFilter, request: PageRequest) {
+  return fetchOffsetPage({
+    request,
+    count: async () => (await getDatabase().select({ count: sql<number>`count(*)::int` }).from(paymentClaims).where(claimConditions(filter)))[0]?.count ?? 0,
+    fetch: (limit, offset) => claimQuery(filter).limit(limit).offset(offset),
+  });
+}
+
+export async function listPaymentClaims(filter: ClaimFilter = {}) {
+  return claimQuery(filter).limit(200);
+}
+
+function claimQuery(filter: ClaimFilter) {
   return getDatabase()
     .select({
       id: paymentClaims.id,
@@ -1347,17 +1416,34 @@ export async function listPaymentClaims(filter: { status?: "waiting" | "confirme
     .innerJoin(leases, eq(leases.id, paymentClaims.leaseId))
     .innerJoin(units, eq(units.id, leases.unitId))
     .innerJoin(tenants, eq(tenants.id, leases.tenantId))
-    .where(
-      and(
-        filter.status && filter.status !== "all" ? eq(paymentClaims.status, filter.status) : undefined,
-        filter.leaseId ? eq(paymentClaims.leaseId, filter.leaseId) : undefined,
-      ),
-    )
-    .orderBy(sql`${paymentClaims.createdAt} desc`)
-    .limit(200);
+    .where(claimConditions(filter))
+    .orderBy(sql`${paymentClaims.createdAt} desc`, desc(paymentClaims.id))
+    .$dynamic();
 }
 
-export async function listPaymentRequests(filter: { leaseId?: string; status?: PaymentRequestStatus } = {}) {
+type RequestFilter = { leaseId?: string; status?: PaymentRequestStatus };
+
+function requestConditions(filter: RequestFilter) {
+  return and(
+    filter.leaseId ? eq(paymentRequests.leaseId, filter.leaseId) : undefined,
+    filter.status ? eq(paymentRequests.status, filter.status) : undefined,
+  );
+}
+
+/** One page (25) of M-Pesa (STK) requests, newest first. */
+export async function pagePaymentRequests(filter: RequestFilter, request: PageRequest) {
+  return fetchOffsetPage({
+    request,
+    count: async () => (await getDatabase().select({ count: sql<number>`count(*)::int` }).from(paymentRequests).where(requestConditions(filter)))[0]?.count ?? 0,
+    fetch: (limit, offset) => requestQuery(filter).limit(limit).offset(offset),
+  });
+}
+
+export async function listPaymentRequests(filter: RequestFilter = {}) {
+  return requestQuery(filter).limit(200);
+}
+
+function requestQuery(filter: RequestFilter) {
   return getDatabase()
     .select({
       id: paymentRequests.id,
@@ -1373,12 +1459,7 @@ export async function listPaymentRequests(filter: { leaseId?: string; status?: P
     .innerJoin(leases, eq(leases.id, paymentRequests.leaseId))
     .innerJoin(units, eq(units.id, leases.unitId))
     .innerJoin(tenants, eq(tenants.id, leases.tenantId))
-    .where(
-      and(
-        filter.leaseId ? eq(paymentRequests.leaseId, filter.leaseId) : undefined,
-        filter.status ? eq(paymentRequests.status, filter.status) : undefined,
-      ),
-    )
-    .orderBy(sql`${paymentRequests.createdAt} desc`)
-    .limit(200);
+    .where(requestConditions(filter))
+    .orderBy(sql`${paymentRequests.createdAt} desc`, desc(paymentRequests.id))
+    .$dynamic();
 }

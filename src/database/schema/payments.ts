@@ -73,6 +73,8 @@ export const payments = pgTable(
   (table) => [
     index("payments_lease_id_index").on(table.leaseId),
     index("payments_match_status_index").on(table.matchStatus),
+    // Payment lists page by (paid_at, id), newest first.
+    index("payments_paid_at_id_index").on(table.paidAt, table.id),
     check("payments_amount_positive", sql`${table.amount} > 0`),
   ],
 ).enableRLS();
@@ -100,6 +102,7 @@ export const paymentRequests = pgTable(
   (table) => [
     index("payment_requests_lease_id_index").on(table.leaseId),
     index("payment_requests_status_index").on(table.status),
+    index("payment_requests_created_at_id_index").on(table.createdAt, table.id),
     check("payment_requests_amount_positive", sql`${table.amount} > 0`),
   ],
 ).enableRLS();
@@ -125,6 +128,7 @@ export const paymentClaims = pgTable(
   },
   (table) => [
     index("payment_claims_status_index").on(table.status),
+    index("payment_claims_created_at_id_index").on(table.createdAt, table.id),
     check("payment_claims_amount_positive", sql`${table.amount} > 0`),
   ],
 ).enableRLS();
@@ -172,7 +176,8 @@ export const ledgerEntries = pgTable(
     createdAt: createdAt(),
   },
   (table) => [
-    index("ledger_entries_lease_id_index").on(table.leaseId, table.entryDate),
+    // Statements page by (entry_date, created_at, id) within a lease; also serves lookups by lease and date.
+    index("ledger_entries_lease_order_index").on(table.leaseId, table.entryDate, table.createdAt, table.id),
     check(
       "ledger_entries_one_side",
       sql`${table.debit} >= 0 and ${table.credit} >= 0 and (${table.debit} = 0) <> (${table.credit} = 0)`,
@@ -219,6 +224,8 @@ export const messages = pgTable(
     index("messages_recipient_index").on(table.recipient),
     // Lets reminders check what was already sent to a lease today.
     index("messages_lease_template_created_index").on(table.leaseId, table.template, table.createdAt),
+    // The message log pages by (created_at, id), newest first.
+    index("messages_created_at_id_index").on(table.createdAt, table.id),
   ],
 ).enableRLS();
 

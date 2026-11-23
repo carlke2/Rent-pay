@@ -5,6 +5,8 @@ import { getEnvironment } from "@/configuration/environment";
 import { dueDateFor, graceEndsOn } from "@/core/billing";
 import { unitPaymentStatus } from "@/core/status";
 import { getDatabase } from "@/database/client";
+import { fetchOffsetPage } from "@/database/keyset";
+import type { PageRequest } from "@/utilities/pagination";
 import {
   allocations,
   buildings,
@@ -210,7 +212,7 @@ export async function getTenantBill(lease: TenantLease, invoiceId: string) {
 }
 
 /** Receipts for the lease, newest first. */
-export async function listTenantReceipts(lease: TenantLease) {
+function tenantReceiptQuery(lease: TenantLease) {
   return getDatabase()
     .select({
       paymentId: payments.id,
@@ -226,7 +228,28 @@ export async function listTenantReceipts(lease: TenantLease) {
     .from(receipts)
     .innerJoin(payments, eq(payments.id, receipts.paymentId))
     .where(eq(payments.leaseId, lease.leaseId))
-    .orderBy(desc(payments.paidAt));
+    .orderBy(desc(payments.paidAt), desc(payments.id))
+    .$dynamic();
+}
+
+export async function listTenantReceipts(lease: TenantLease) {
+  return tenantReceiptQuery(lease);
+}
+
+/** One page (25) of the tenant's receipts, newest first. */
+export async function pageTenantReceipts(lease: TenantLease, request: PageRequest) {
+  return fetchOffsetPage({
+    request,
+    count: async () =>
+      (
+        await getDatabase()
+          .select({ count: sql<number>`count(*)::int` })
+          .from(receipts)
+          .innerJoin(payments, eq(payments.id, receipts.paymentId))
+          .where(eq(payments.leaseId, lease.leaseId))
+      )[0]?.count ?? 0,
+    fetch: (limit, offset) => tenantReceiptQuery(lease).limit(limit).offset(offset),
+  });
 }
 
 // ---- STK progress ----

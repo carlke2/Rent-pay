@@ -5,6 +5,8 @@ import { createBillLink, createPayLink } from "@/authentication/pay-links";
 import { getEnvironment } from "@/configuration/environment";
 import { graceEndsOn } from "@/core/billing";
 import { getDatabase } from "@/database/client";
+import { fetchOffsetPage } from "@/database/keyset";
+import type { PageRequest } from "@/utilities/pagination";
 import {
   invoiceLines,
   invoices,
@@ -992,9 +994,20 @@ export const MESSAGE_TEMPLATES = [
   { template: "daily_summary", name: "Daily summary (to landlord)", wording: "{APP}: Yesterday: KES {collected} from {count} payments. Owed: KES {outstanding} across {units} units. {unmatched} unmatched, {flagged} readings to confirm." },
 ] as const;
 
-/** Message log, newest first, filtered by tenant name/phone and template. */
-export async function listMessages(filter: { search?: string; template?: string; leaseId?: string; limit?: number } = {}) {
+type MessageFilter = { search?: string; template?: string; leaseId?: string };
+
+function messageConditions(filter: MessageFilter) {
   const search = filter.search?.trim();
+  // Phone matching only when the search has digits: an empty pattern ('%%') would match every message.
+  const digits = search?.replace(/\D/g, "").replace(/^0/, "") ?? "";
+  return and(
+    filter.template ? eq(messages.template, filter.template) : undefined,
+    filter.leaseId ? eq(messages.leaseId, filter.leaseId) : undefined,
+    search ? sql`(${tenants.fullName} ilike ${`%${search}%`}${digits ? sql` or ${messages.recipient} like ${`%${digits}%`}` : sql``})` : undefined,
+  );
+}
+
+function messageQuery(filter: MessageFilter) {
   return getDatabase()
     .select({
       id: messages.id,
@@ -1011,15 +1024,30 @@ export async function listMessages(filter: { search?: string; template?: string;
     .leftJoin(leases, eq(leases.id, messages.leaseId))
     .leftJoin(tenants, eq(tenants.id, leases.tenantId))
     .leftJoin(units, eq(units.id, leases.unitId))
-    .where(
-      and(
-        filter.template ? eq(messages.template, filter.template) : undefined,
-        filter.leaseId ? eq(messages.leaseId, filter.leaseId) : undefined,
-        search ? sql`(${tenants.fullName} ilike ${`%${search}%`} or ${messages.recipient} like ${`%${search.replace(/\D/g, "").replace(/^0/, "")}%`})` : undefined,
-      ),
-    )
-    .orderBy(sql`${messages.createdAt} desc`)
-    .limit(filter.limit ?? 200);
+    .where(messageConditions(filter))
+    .orderBy(sql`${messages.createdAt} desc`, desc(messages.id))
+    .$dynamic();
+}
+
+/** Message log, newest first, filtered by tenant name/phone and template. */
+export async function listMessages(filter: MessageFilter & { limit?: number } = {}) {
+  return messageQuery(filter).limit(filter.limit ?? 200);
+}
+
+/** One page (25) of the message log, newest first. */
+export async function pageMessages(filter: MessageFilter, request: PageRequest) {
+  return fetchOffsetPage({
+    request,
+    count: async () => {
+      const query = getDatabase().select({ count: sql<number>`count(*)::int` }).from(messages);
+      const [row] = await (filter.search?.trim()
+        ? query.leftJoin(leases, eq(leases.id, messages.leaseId)).leftJoin(tenants, eq(tenants.id, leases.tenantId))
+        : query
+      ).where(messageConditions(filter));
+      return row?.count ?? 0;
+    },
+    fetch: (limit, offset) => messageQuery(filter).limit(limit).offset(offset),
+  });
 }
 
 /** Texts the tenant their balance with a link to the statement. */

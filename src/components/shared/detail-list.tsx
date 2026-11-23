@@ -11,9 +11,9 @@ export function DetailList({ items }: { items: [label: string, value: React.Reac
   );
 }
 
-export function Panel({ title, actions, children, className }: { title: string; actions?: React.ReactNode; children: React.ReactNode; className?: string }) {
+export function Panel({ title, actions, children, className, id }: { title: string; actions?: React.ReactNode; children: React.ReactNode; className?: string; id?: string }) {
   return (
-    <section className={`min-w-0 rounded-xl border bg-card p-4 sm:p-5 ${className ?? ""}`}>
+    <section id={id} className={`min-w-0 scroll-mt-24 rounded-xl border bg-card p-4 sm:p-5 ${className ?? ""}`}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold">{title}</h2>
         {actions ? <div className="flex flex-wrap gap-2 print:hidden">{actions}</div> : null}

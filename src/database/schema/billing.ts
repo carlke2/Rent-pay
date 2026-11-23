@@ -64,6 +64,8 @@ export const invoices = pgTable(
   },
   (table) => [
     unique("invoices_lease_period_source_unique").on(table.leaseId, table.period, table.source),
+    // The invoice list is per month.
+    index("invoices_period_index").on(table.period),
     check("invoices_source_valid", sql`${table.source} in ('live', 'opening', 'import')`),
     check("invoices_period_format", sql`${table.period} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
     check("invoices_total_not_negative", sql`${table.total} >= 0`),

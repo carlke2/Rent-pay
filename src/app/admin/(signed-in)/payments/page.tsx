@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Download, Wallet } from "lucide-react";
 import { assignPaymentAction, confirmClaimAction, reconcileAction, rejectClaimAction, reversePaymentAction } from "@/app/admin/actions/payments";
 import { ActionForm } from "@/components/shared/action-form";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar } from "@/components/shared/filter-bar";
+import { TableSkeleton } from "@/components/shared/list-skeleton";
+import { ListAnchor, Pagination, paramsKey } from "@/components/shared/pagination";
 import { LinkTabs } from "@/components/shared/link-tabs";
 import { Money } from "@/components/shared/money";
 import { PageHeader } from "@/components/shared/page-header";
@@ -13,15 +16,18 @@ import { ResponsiveTable } from "@/components/shared/responsive-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/shared/ui/button";
 import {
+  countPayments,
   getClaimSlipUrl,
   listAssignableLeases,
   listPaymentClaims,
-  listPaymentRequests,
-  listPayments,
+  pagePaymentClaims,
+  pagePaymentRequests,
+  pagePayments,
   type PaymentChannel,
 } from "@/services/payments";
 import { listBuildings } from "@/services/tenancy";
 import { addDays, formatDate, formatNairobiDateTime, isIsoDate, todayInNairobi } from "@/utilities/dates";
+import { readPageRequest, type PageRequest, type SearchParams } from "@/utilities/pagination";
 
 export const metadata: Metadata = { title: "Payments" };
 
@@ -40,7 +46,7 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/admin/p
   const openPaymentId = typeof query.payment === "string" ? query.payment : undefined;
 
   const [unmatchedCount, waitingClaims, buildings] = await Promise.all([
-    listPayments({ status: "unmatched", limit: 500 }).then((rows) => rows.length),
+    countPayments({ status: "unmatched" }),
     listPaymentClaims({ status: "waiting" }),
     listBuildings(),
   ]);
@@ -51,6 +57,8 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/admin/p
     href: value === "all" ? "/admin/payments" : `/admin/payments?tab=${value}`,
     count: value === "unmatched" ? unmatchedCount : value === "claims" ? waitingClaims.length : undefined,
   }));
+  const request = readPageRequest(query);
+  const listKey = paramsKey(query);
   const exportFrom = from ?? addDays(today, -30);
   const exportTo = to ?? today;
 
@@ -77,11 +85,13 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/admin/p
       />
       <LinkTabs label="Payment views" tabs={tabs} active={tab} />
       {tab === "all" || tab === "unmatched" ? (
-        <PaymentList status={tab} from={from} to={to} buildingId={buildingId} channel={channel} buildings={buildings} openPaymentId={openPaymentId} />
-      ) : tab === "claims" ? (
-        <ClaimList />
+        <PaymentList status={tab} from={from} to={to} buildingId={buildingId} channel={channel} buildings={buildings} openPaymentId={openPaymentId} request={request} params={query} listKey={listKey} />
       ) : (
-        <RequestList />
+        <ListAnchor id="payments-list">
+          <Suspense key={listKey} fallback={<TableSkeleton />}>
+            {tab === "claims" ? <ClaimList request={request} params={query} /> : <RequestList request={request} params={query} />}
+          </Suspense>
+        </ListAnchor>
       )}
     </>
   );
@@ -95,12 +105,10 @@ async function PaymentList(props: {
   channel?: PaymentChannel;
   buildings: { id: string; name: string }[];
   openPaymentId?: string;
+  request: PageRequest;
+  params: SearchParams;
+  listKey: string;
 }) {
-  const [rows, leases] = await Promise.all([
-    listPayments({ status: props.status, from: props.from, to: props.to, buildingId: props.buildingId, channel: props.channel }),
-    listAssignableLeases(),
-  ]);
-  const leaseOptions = leases.map((lease) => ({ value: lease.leaseId, label: `${lease.unitCode} · ${lease.tenantName}${lease.status === "ended" ? " (moved out)" : ""}` }));
   return (
     <>
       <FilterBar
@@ -112,6 +120,24 @@ async function PaymentList(props: {
           { name: "channel", label: "Channel", type: "select", value: props.channel, options: [{ value: "", label: "All channels" }, ...CHANNELS.map((value) => ({ value, label: value === "stk" ? "M-Pesa prompt" : value === "paybill" ? "Paybill" : value === "bank" ? "Bank" : "Cash" }))] },
         ]}
       />
+      <ListAnchor id="payments-list">
+        <Suspense key={props.listKey} fallback={<TableSkeleton />}>
+          <PaymentRows {...props} />
+        </Suspense>
+      </ListAnchor>
+    </>
+  );
+}
+
+async function PaymentRows(props: Parameters<typeof PaymentList>[0]) {
+  const [page, leases] = await Promise.all([
+    pagePayments({ status: props.status, from: props.from, to: props.to, buildingId: props.buildingId, channel: props.channel }, props.request),
+    listAssignableLeases(),
+  ]);
+  const rows = page.rows;
+  const leaseOptions = leases.map((lease) => ({ value: lease.leaseId, label: `${lease.unitCode} · ${lease.tenantName}${lease.status === "ended" ? " (moved out)" : ""}` }));
+  return (
+    <>
       {rows.length === 0 ? (
         <EmptyState icon={Wallet} title={props.status === "unmatched" ? "No unmatched payments" : "No payments found"} description={props.status === "unmatched" ? "Every payment has been matched to a lease." : undefined} />
       ) : (
@@ -187,82 +213,93 @@ async function PaymentList(props: {
           ]}
         />
       )}
+      {rows.length > 0 ? (
+        <Pagination info={page.info} params={props.params} pathname="/admin/payments" anchor="payments-list" firstCursor={page.firstCursor} lastCursor={page.lastCursor} omit={["payment"]} />
+      ) : null}
     </>
   );
 }
 
-async function ClaimList() {
-  const claims = await listPaymentClaims({ status: "all" });
+async function ClaimList({ request, params }: { request: PageRequest; params: SearchParams }) {
+  const page = await pagePaymentClaims({ status: "all" }, request);
+  const claims = page.rows;
   const slipUrls = new Map(
     await Promise.all(claims.filter((claim) => claim.hasSlip).map(async (claim) => [claim.id, await getClaimSlipUrl(claim.id)] as const)),
   );
   if (claims.length === 0) return <EmptyState title="No payment claims" description="Tenants report bank and cash payments here." />;
   return (
-    <ResponsiveTable
-      rows={claims}
-      rowKey={(row) => row.id}
-      columns={[
-        { key: "who", header: "Tenant", primary: true, cell: (row) => `${row.unitCode} · ${row.tenantName}` },
-        { key: "paidOn", header: "Paid on", cell: (row) => formatDate(row.paidOn) },
-        { key: "method", header: "Method", cell: (row) => `${row.method}${row.reference ? ` · ${row.reference}` : ""}` },
-        {
-          key: "slip",
-          header: "Slip",
-          cell: (row) => {
-            const url = slipUrls.get(row.id);
-            return url ? <a href={url} target="_blank" rel="noreferrer">View slip</a> : "–";
+    <>
+      <ResponsiveTable
+        rows={claims}
+        rowKey={(row) => row.id}
+        columns={[
+          { key: "who", header: "Tenant", primary: true, cell: (row) => `${row.unitCode} · ${row.tenantName}` },
+          { key: "paidOn", header: "Paid on", cell: (row) => formatDate(row.paidOn) },
+          { key: "method", header: "Method", cell: (row) => `${row.method}${row.reference ? ` · ${row.reference}` : ""}` },
+          {
+            key: "slip",
+            header: "Slip",
+            cell: (row) => {
+              const url = slipUrls.get(row.id);
+              return url ? <a href={url} target="_blank" rel="noreferrer">View slip</a> : "–";
+            },
           },
-        },
-        { key: "status", header: "Status", cell: (row) => <StatusBadge status={row.status} /> },
-        { key: "amount", header: "Amount", align: "right", cell: (row) => <Money amount={row.amount} /> },
-        {
-          key: "actions",
-          header: "",
-          cell: (row) =>
-            row.status === "waiting" ? (
-              <div className="flex flex-wrap justify-end gap-2">
-                <ActionForm
-                  action={confirmClaimAction}
-                  submitLabel="Confirm"
-                  inline
-                  confirm={{ title: "Confirm this payment?", description: `KES ${row.amount.toLocaleString("en-KE")} will be recorded for ${row.unitCode} and a receipt sent.` }}
-                  fields={[{ name: "claimId", label: "", type: "hidden", defaultValue: row.id }]}
-                />
-                <ActionForm
-                  action={rejectClaimAction}
-                  submitLabel="Reject"
-                  dialog={{ trigger: "Reject", title: "Reject claim", triggerVariant: "ghost" }}
-                  confirm={{ title: "Reject this claim?", description: "The tenant gets an SMS with your reason.", destructive: true }}
-                  fields={[
-                    { name: "claimId", label: "", type: "hidden", defaultValue: row.id },
-                    { name: "reason", label: "Reason (sent to the tenant)", type: "textarea", required: true },
-                  ]}
-                />
-              </div>
-            ) : row.reason ? (
-              <span className="text-xs text-muted-foreground">{row.reason}</span>
-            ) : null,
-        },
-      ]}
-    />
+          { key: "status", header: "Status", cell: (row) => <StatusBadge status={row.status} /> },
+          { key: "amount", header: "Amount", align: "right", cell: (row) => <Money amount={row.amount} /> },
+          {
+            key: "actions",
+            header: "",
+            cell: (row) =>
+              row.status === "waiting" ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <ActionForm
+                    action={confirmClaimAction}
+                    submitLabel="Confirm"
+                    inline
+                    confirm={{ title: "Confirm this payment?", description: `KES ${row.amount.toLocaleString("en-KE")} will be recorded for ${row.unitCode} and a receipt sent.` }}
+                    fields={[{ name: "claimId", label: "", type: "hidden", defaultValue: row.id }]}
+                  />
+                  <ActionForm
+                    action={rejectClaimAction}
+                    submitLabel="Reject"
+                    dialog={{ trigger: "Reject", title: "Reject claim", triggerVariant: "ghost" }}
+                    confirm={{ title: "Reject this claim?", description: "The tenant gets an SMS with your reason.", destructive: true }}
+                    fields={[
+                      { name: "claimId", label: "", type: "hidden", defaultValue: row.id },
+                      { name: "reason", label: "Reason (sent to the tenant)", type: "textarea", required: true },
+                    ]}
+                  />
+                </div>
+              ) : row.reason ? (
+                <span className="text-xs text-muted-foreground">{row.reason}</span>
+              ) : null,
+          },
+        ]}
+      />
+      <Pagination info={page.info} params={params} pathname="/admin/payments" anchor="payments-list" />
+    </>
   );
 }
 
-async function RequestList() {
-  const requests = await listPaymentRequests();
+async function RequestList({ request, params }: { request: PageRequest; params: SearchParams }) {
+  const page = await pagePaymentRequests({}, request);
+  const requests = page.rows;
   if (requests.length === 0) return <EmptyState title="No M-Pesa requests yet" />;
   return (
-    <ResponsiveTable
-      rows={requests}
-      rowKey={(row) => row.id}
-      columns={[
-        { key: "who", header: "Tenant", primary: true, cell: (row) => `${row.unitCode} · ${row.tenantName}` },
-        { key: "sent", header: "Sent", cell: (row) => formatNairobiDateTime(row.createdAt) },
-        { key: "phone", header: "Phone", cell: (row) => `0${row.phone.slice(3)}` },
-        { key: "status", header: "Status", cell: (row) => <StatusBadge status={row.status} /> },
-        { key: "result", header: "Result", cell: (row) => row.resultDescription ?? "–" },
-        { key: "amount", header: "Amount", align: "right", cell: (row) => <Money amount={row.amount} /> },
-      ]}
-    />
+    <>
+      <ResponsiveTable
+        rows={requests}
+        rowKey={(row) => row.id}
+        columns={[
+          { key: "who", header: "Tenant", primary: true, cell: (row) => `${row.unitCode} · ${row.tenantName}` },
+          { key: "sent", header: "Sent", cell: (row) => formatNairobiDateTime(row.createdAt) },
+          { key: "phone", header: "Phone", cell: (row) => `0${row.phone.slice(3)}` },
+          { key: "status", header: "Status", cell: (row) => <StatusBadge status={row.status} /> },
+          { key: "result", header: "Result", cell: (row) => row.resultDescription ?? "–" },
+          { key: "amount", header: "Amount", align: "right", cell: (row) => <Money amount={row.amount} /> },
+        ]}
+      />
+      <Pagination info={page.info} params={params} pathname="/admin/payments" anchor="payments-list" />
+    </>
   );
 }

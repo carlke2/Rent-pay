@@ -1,16 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Users } from "lucide-react";
 import { Avatar } from "@/components/shared/avatar";
 import { Button } from "@/components/shared/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar } from "@/components/shared/filter-bar";
+import { TableSkeleton } from "@/components/shared/list-skeleton";
+import { ListAnchor, Pagination, paramsKey } from "@/components/shared/pagination";
 import { Money } from "@/components/shared/money";
 import { PageHeader } from "@/components/shared/page-header";
 import { ResponsiveTable } from "@/components/shared/responsive-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { avatarUrl } from "@/services/avatars";
 import { listTenants, type TenantListFilter } from "@/services/tenancy";
+import { readPageRequest, slicePage, type SearchParams } from "@/utilities/pagination";
 
 export const metadata: Metadata = { title: "Tenants" };
 
@@ -23,16 +27,15 @@ const STATUSES: { value: TenantListFilter; label: string }[] = [
 ];
 
 export default async function TenantsPage({ searchParams }: PageProps<"/admin/tenants">) {
-  const { search, status } = await searchParams;
+  const params = await searchParams;
+  const { search, status } = params;
   const query = typeof search === "string" ? search : "";
   const filter = STATUSES.find((option) => option.value === status)?.value ?? "all";
-  const tenants = await listTenants({ search: query, status: filter });
 
   return (
     <>
       <PageHeader
         title="Tenants"
-        description={`${tenants.length} shown`}
         actions={
           <Button asChild size="sm">
             <Link href="/admin/move-in" className="no-underline">Move in a tenant</Link>
@@ -45,6 +48,21 @@ export default async function TenantsPage({ searchParams }: PageProps<"/admin/te
           { name: "status", label: "Status", type: "select", value: filter, options: STATUSES },
         ]}
       />
+      <ListAnchor id="tenants-list">
+        <Suspense key={paramsKey(params)} fallback={<TableSkeleton />}>
+          <TenantRows query={query} filter={filter} params={params} />
+        </Suspense>
+      </ListAnchor>
+    </>
+  );
+}
+
+async function TenantRows({ query, filter, params }: { query: string; filter: TenantListFilter; params: SearchParams }) {
+  // Balances and status are worked out per tenant in one query; the page of 25 is cut on the server.
+  const all = await listTenants({ search: query, status: filter });
+  const { rows: tenants, info } = slicePage(all, readPageRequest(params).page);
+  return (
+    <>
       {tenants.length === 0 ? (
         <EmptyState icon={Users} title={query || filter !== "all" ? "No tenants match" : "No tenants yet"} description={query ? "Try another name, phone number or unit code." : undefined} />
       ) : (
@@ -70,6 +88,7 @@ export default async function TenantsPage({ searchParams }: PageProps<"/admin/te
           ]}
         />
       )}
+      {tenants.length > 0 ? <Pagination info={info} params={params} pathname="/admin/tenants" anchor="tenants-list" /> : null}
     </>
   );
 }

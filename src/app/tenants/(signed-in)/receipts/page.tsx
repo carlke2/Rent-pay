@@ -1,23 +1,43 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { ChevronRight, ReceiptText } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
+import { TableSkeleton } from "@/components/shared/list-skeleton";
 import { Money } from "@/components/shared/money";
+import { ListAnchor, Pagination, paramsKey } from "@/components/shared/pagination";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TenantHeading } from "@/components/tenants/tenant-heading";
-import { listTenantReceipts } from "@/services/portal";
+import { pageTenantReceipts } from "@/services/portal";
 import { formatNairobiDateTime } from "@/utilities/dates";
+import { readPageRequest, type SearchParams } from "@/utilities/pagination";
 import { currentTenantLease } from "../../current-lease";
 
 export const metadata: Metadata = { title: "Receipts" };
 
-export default async function ReceiptsPage() {
+type Lease = NonNullable<Awaited<ReturnType<typeof currentTenantLease>>["lease"]>;
+
+export default async function ReceiptsPage({ searchParams }: PageProps<"/tenants/receipts">) {
   const { lease } = await currentTenantLease();
   if (!lease) return null;
-  const receipts = await listTenantReceipts(lease);
+  const params = await searchParams;
   return (
     <>
       <TenantHeading title="Receipts" />
+      <ListAnchor id="receipts-list">
+        <Suspense key={paramsKey(params)} fallback={<TableSkeleton rows={6} />}>
+          <ReceiptRows lease={lease} params={params} />
+        </Suspense>
+      </ListAnchor>
+    </>
+  );
+}
+
+async function ReceiptRows({ lease, params }: { lease: Lease; params: SearchParams }) {
+  const page = await pageTenantReceipts(lease, readPageRequest(params));
+  const receipts = page.rows;
+  return (
+    <>
       {receipts.length === 0 ? (
         <EmptyState icon={ReceiptText} title="No receipts yet" description="Every payment you make gets a receipt here." />
       ) : (
@@ -37,6 +57,7 @@ export default async function ReceiptsPage() {
           ))}
         </ul>
       )}
+      {receipts.length > 0 ? <Pagination info={page.info} params={params} pathname="/tenants/receipts" anchor="receipts-list" /> : null}
     </>
   );
 }

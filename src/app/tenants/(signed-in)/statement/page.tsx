@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ScrollText } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Money } from "@/components/shared/money";
@@ -7,8 +8,10 @@ import { Button } from "@/components/shared/ui/button";
 import { Input } from "@/components/shared/ui/input";
 import { Label } from "@/components/shared/ui/label";
 import { TenantCard, TenantHeading } from "@/components/tenants/tenant-heading";
-import { getLeaseStatement } from "@/services/billing";
+import { Pagination } from "@/components/shared/pagination";
+import { getLeaseStatement, getLeaseStatementPage } from "@/services/billing";
 import { addMonthsToDate, formatDate, isIsoDate, laterDate, todayInNairobi } from "@/utilities/dates";
+import { readPageRequest } from "@/utilities/pagination";
 import { currentTenantLease } from "../../current-lease";
 
 export const metadata: Metadata = { title: "Statement" };
@@ -21,7 +24,11 @@ export default async function StatementPage({ searchParams }: PageProps<"/tenant
   const defaultFrom = laterDate(addMonthsToDate(today, -6), lease.startDate);
   const from = typeof query.from === "string" && isIsoDate(query.from) ? query.from : defaultFrom;
   const to = typeof query.to === "string" && isIsoDate(query.to) ? query.to : undefined;
-  const statement = await getLeaseStatement({ leaseId: lease.leaseId, from, to: to && to >= from ? to : undefined });
+  const range = { leaseId: lease.leaseId, from, to: to && to >= from ? to : undefined };
+  // ?view=all shows the whole period on one screen (for printing); otherwise 25 entries a page.
+  const showAll = query.view === "all";
+  const statement = showAll ? { ...(await getLeaseStatement(range)), info: null, firstCursor: null, lastCursor: null } : await getLeaseStatementPage(range, readPageRequest(query));
+  const allHref = `/tenants/statement?${new URLSearchParams({ from: statement.from, to: statement.to, view: "all" })}`;
 
   return (
     <div className="grid gap-4">
@@ -42,7 +49,7 @@ export default async function StatementPage({ searchParams }: PageProps<"/tenant
       </p>
 
       <TenantCard>
-        <div className="flex justify-between text-sm">
+        <div id="statement-list" className="flex scroll-mt-24 justify-between text-sm">
           <span className="text-muted-foreground">Opening balance</span>
           <Money amount={statement.openingBalance} balance className="font-medium" />
         </div>
@@ -72,9 +79,19 @@ export default async function StatementPage({ searchParams }: PageProps<"/tenant
           <span className="font-semibold text-heading">Closing balance</span>
           <Money amount={statement.closingBalance} balance className="text-lg font-semibold text-heading" />
         </div>
+        {statement.info && statement.entries.length > 0 ? (
+          <Pagination info={statement.info} params={query} pathname="/tenants/statement" anchor="statement-list" firstCursor={statement.firstCursor} lastCursor={statement.lastCursor} />
+        ) : null}
       </TenantCard>
       <div className="print:hidden">
-        <PrintPageButton label="Print / Save as PDF" large />
+        {statement.info && statement.info.pageCount > 1 ? (
+          // Printing one page of a longer statement would leave entries out: print from the full view.
+          <Button asChild variant="outline" className="w-full">
+            <Link href={allHref} prefetch={false} className="no-underline">Show all {statement.info.total} entries to print</Link>
+          </Button>
+        ) : (
+          <PrintPageButton label="Print / Save as PDF" large />
+        )}
       </div>
     </div>
   );

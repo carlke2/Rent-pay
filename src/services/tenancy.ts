@@ -867,6 +867,8 @@ export type TenantListFilter = "all" | "active" | "notice" | "ended" | "owing";
 /** Tenants with their units, lease status and total balance. */
 export async function listTenants(input: { search?: string; status?: TenantListFilter } = {}) {
   const search = input.search?.trim();
+  // Phone matching only when the search has digits: an empty pattern ('%%') would match every tenant.
+  const searchDigits = search?.replace(/\D/g, "").replace(/^0/, "") ?? "";
   const rows = await getDatabase().execute(sql`
     select t.id as "tenantId", t.full_name as "fullName", t.phone, t.portal_access as "portalAccess", t.avatar_key as "avatarKey",
       coalesce(string_agg(distinct u.code, ', ') filter (where l.status <> 'ended'), string_agg(distinct u.code, ', ')) as units,
@@ -875,7 +877,7 @@ export async function listTenants(input: { search?: string; status?: TenantListF
     from tenants t
     left join leases l on l.tenant_id = t.id
     left join units u on u.id = l.unit_id
-    where ${search ? sql`(t.full_name ilike ${`%${search}%`} or t.phone like ${`%${search.replace(/\D/g, "").replace(/^0/, "")}%`} or u.code ilike ${`%${search}%`})` : sql`true`}
+    where ${search ? sql`(t.full_name ilike ${`%${search}%`} or u.code ilike ${`%${search}%`}${searchDigits ? sql` or t.phone like ${`%${searchDigits}%`}` : sql``})` : sql`true`}
     group by t.id
     order by t.full_name`);
   const list = [...rows] as {

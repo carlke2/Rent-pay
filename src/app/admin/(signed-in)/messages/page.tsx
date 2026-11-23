@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { MessageSquare } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar } from "@/components/shared/filter-bar";
+import { TableSkeleton } from "@/components/shared/list-skeleton";
+import { ListAnchor, Pagination, paramsKey } from "@/components/shared/pagination";
 import { PageHeader } from "@/components/shared/page-header";
 import { ResponsiveTable } from "@/components/shared/responsive-table";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { listMessages, MESSAGE_TEMPLATES } from "@/services/notifications";
+import { MESSAGE_TEMPLATES, pageMessages } from "@/services/notifications";
 import { formatNairobiDateTime } from "@/utilities/dates";
+import { readPageRequest, type SearchParams } from "@/utilities/pagination";
 
 export const metadata: Metadata = { title: "Messages" };
 
@@ -14,8 +18,6 @@ export default async function MessagesPage({ searchParams }: PageProps<"/admin/m
   const query = await searchParams;
   const search = typeof query.search === "string" ? query.search : "";
   const template = typeof query.template === "string" && MESSAGE_TEMPLATES.some((item) => item.template === query.template) ? query.template : "";
-  const messages = await listMessages({ search, template: template || undefined });
-  const names = new Map<string, string>(MESSAGE_TEMPLATES.map((item) => [item.template, item.name]));
 
   return (
     <>
@@ -26,6 +28,21 @@ export default async function MessagesPage({ searchParams }: PageProps<"/admin/m
           { name: "template", label: "Message type", type: "select", value: template, options: [{ value: "", label: "All types" }, ...MESSAGE_TEMPLATES.map((item) => ({ value: item.template, label: item.name }))] },
         ]}
       />
+      <ListAnchor id="messages-list">
+        <Suspense key={paramsKey(query)} fallback={<TableSkeleton />}>
+          <MessageRows search={search} template={template} params={query} />
+        </Suspense>
+      </ListAnchor>
+    </>
+  );
+}
+
+async function MessageRows({ search, template, params }: { search: string; template: string; params: SearchParams }) {
+  const page = await pageMessages({ search, template: template || undefined }, readPageRequest(params));
+  const messages = page.rows;
+  const names = new Map<string, string>(MESSAGE_TEMPLATES.map((item) => [item.template, item.name]));
+  return (
+    <>
       {messages.length === 0 ? (
         <EmptyState icon={MessageSquare} title="No messages" description={search || template ? "Try other filters." : "Messages appear here once SMS start going out."} />
       ) : (
@@ -41,6 +58,7 @@ export default async function MessagesPage({ searchParams }: PageProps<"/admin/m
           ]}
         />
       )}
+      {messages.length > 0 ? <Pagination info={page.info} params={params} pathname="/admin/messages" anchor="messages-list" /> : null}
     </>
   );
 }

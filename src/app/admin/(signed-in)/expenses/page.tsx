@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Receipt } from "lucide-react";
 import { createExpenseAction, deleteExpenseAction, updateExpenseAction } from "@/app/admin/actions/expenses";
 import { ActionForm } from "@/components/shared/action-form";
 import type { FormFieldConfig } from "@/components/shared/action-types";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar } from "@/components/shared/filter-bar";
+import { TableSkeleton } from "@/components/shared/list-skeleton";
+import { ListAnchor, Pagination, paramsKey } from "@/components/shared/pagination";
 import { Money } from "@/components/shared/money";
 import { PageHeader } from "@/components/shared/page-header";
 import { ResponsiveTable } from "@/components/shared/responsive-table";
-import { listExpenses } from "@/services/expenses";
+import { pageExpenses } from "@/services/expenses";
 import { listBuildings, listUnitOptions } from "@/services/tenancy";
 import { firstDayOfPeriod, formatDate, isIsoDate, periodOf, todayInNairobi } from "@/utilities/dates";
-import { sumShillings } from "@/utilities/money";
+import { readPageRequest, type SearchParams } from "@/utilities/pagination";
 
 export const metadata: Metadata = { title: "Expenses" };
 
@@ -23,9 +26,9 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/admin/e
   const from = typeof query.from === "string" && isIsoDate(query.from) ? query.from : firstDayOfPeriod(periodOf(today));
   const to = typeof query.to === "string" && isIsoDate(query.to) ? query.to : today;
   const buildingId = typeof query.building === "string" && query.building ? query.building : undefined;
-  const [expenses, buildings, units] = await Promise.all([listExpenses({ from, to, buildingId }), listBuildings(), listUnitOptions()]);
+  const [buildings, units] = await Promise.all([listBuildings(), listUnitOptions()]);
 
-  const fields = (values?: (typeof expenses)[number]): FormFieldConfig[] => [
+  const fields = (values?: ExpenseRow): FormFieldConfig[] => [
     { name: "buildingId", label: "Building", type: "select", required: true, defaultValue: values?.buildingId ?? buildings[0]?.id, options: buildings.map((b) => ({ value: b.id, label: b.name })), span: "half" },
     { name: "unitId", label: "Unit (optional)", type: "select", defaultValue: values?.unitId ?? "", options: [{ value: "", label: "Whole building" }, ...units.map((u) => ({ value: u.unitId, label: `${u.code} · ${u.buildingName}` }))], span: "half" },
     { name: "category", label: "Category", type: "select", required: true, defaultValue: values?.category ?? "Repairs", options: CATEGORIES.includes(values?.category ?? "Repairs") ? CATEGORIES.map((c) => ({ value: c, label: c })) : [...CATEGORIES, values?.category ?? ""].map((c) => ({ value: c, label: c })), span: "half" },
@@ -47,6 +50,30 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/admin/e
           { name: "building", label: "Building", type: "select", value: buildingId, options: [{ value: "", label: "All buildings" }, ...buildings.map((b) => ({ value: b.id, label: b.name }))] },
         ]}
       />
+      <ListAnchor id="expenses-list">
+        <Suspense key={paramsKey(query)} fallback={<TableSkeleton />}>
+          <ExpenseRows from={from} to={to} buildingId={buildingId} params={query} fields={fields} addButton={addButton} />
+        </Suspense>
+      </ListAnchor>
+    </>
+  );
+}
+
+type ExpenseRow = Awaited<ReturnType<typeof pageExpenses>>["rows"][number];
+
+async function ExpenseRows(props: {
+  from: string;
+  to: string;
+  buildingId?: string;
+  params: SearchParams;
+  fields: (values?: ExpenseRow) => FormFieldConfig[];
+  addButton: React.ReactNode;
+}) {
+  const { fields, addButton } = props;
+  const page = await pageExpenses({ from: props.from, to: props.to, buildingId: props.buildingId }, readPageRequest(props.params));
+  const expenses = page.rows;
+  return (
+    <>
       {expenses.length === 0 ? (
         <EmptyState icon={Receipt} title="No expenses in this period" action={addButton} />
       ) : (
@@ -85,8 +112,9 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/admin/e
             ]}
           />
           <p className="mt-3 text-right text-sm">
-            Total <Money amount={sumShillings(expenses.map((row) => row.amount))} className="font-semibold" />
+            Total for the period <Money amount={page.totalAmount} className="font-semibold" />
           </p>
+          <Pagination info={page.info} params={props.params} pathname="/admin/expenses" anchor="expenses-list" />
         </>
       )}
     </>
