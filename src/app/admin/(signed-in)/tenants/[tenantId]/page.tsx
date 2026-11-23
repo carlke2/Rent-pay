@@ -41,7 +41,8 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
   // Each list on this page pages on its own (ledger_page, inv_page, pay_page, req_page, msg_page in the URL).
   const [statement, allInvoices, paymentPage, requestPage, messagePage, recentReminders, openLines] = lease
     ? await Promise.all([
-        getLeaseStatementPage({ leaseId: lease.leaseId, from, to }, readPageRequest(query, "ledger")),
+        // Passing the start date lets the ledger load in the same round as everything else.
+        getLeaseStatementPage({ leaseId: lease.leaseId, from: from ?? lease.startDate, to }, readPageRequest(query, "ledger")),
         listInvoicesForLease(lease.leaseId),
         pagePayments({ leaseId: lease.leaseId }, readPageRequest(query, "pay")),
         pagePaymentRequests({ leaseId: lease.leaseId }, readPageRequest(query, "req")),
@@ -144,7 +145,7 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
       {detail.leases.length > 1 ? (
         <nav aria-label="Leases" className="mb-4 flex gap-2 overflow-x-auto pb-1">
           {detail.leases.map((item) => (
-            <Link
+            <Link prefetch={false}
               key={item.leaseId}
               href={`/admin/tenants/${tenant.id}?lease=${item.leaseId}`}
               className={cn("inline-flex min-h-8 items-center rounded-full border bg-card px-3.5 text-sm pointer-coarse:min-h-11 whitespace-nowrap text-foreground no-underline", item.leaseId === lease?.leaseId && "border-brand bg-brand-surface text-brand")}
@@ -172,7 +173,7 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
           <Panel title="Lease" className="lg:col-span-2">
             <DetailList
               items={[
-                ["Unit", <Link key="unit" href={`/admin/units/${lease.unitId}`}>{lease.unitCode}</Link>],
+                ["Unit", <Link prefetch={false} key="unit" href={`/admin/units/${lease.unitId}`}>{lease.unitCode}</Link>],
                 ["Status", <StatusBadge key="status" status={lease.status} label={lease.status === "ended" ? "Moved out" : undefined} />],
                 ["Started", formatDate(lease.startDate)],
                 ["Ends", lease.endDate ? formatDate(lease.endDate) : "–"],
@@ -243,7 +244,7 @@ export default async function TenantPage({ params, searchParams }: PageProps<"/a
               rows={payments}
               rowKey={(row) => row.id}
               columns={[
-                { key: "receipt", header: "Receipt", primary: true, cell: (row) => (row.receiptToken ? <Link href={`/receipts/${row.receiptToken}`} target="_blank">{row.receiptNumber}</Link> : "–") },
+                { key: "receipt", header: "Receipt", primary: true, cell: (row) => (row.receiptToken ? <Link prefetch={false} href={`/receipts/${row.receiptToken}`} target="_blank">{row.receiptNumber}</Link> : "–") },
                 { key: "date", header: "Date", cell: (row) => formatNairobiDateTime(row.paidAt) },
                 {
                   key: "channel",

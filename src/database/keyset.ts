@@ -61,13 +61,33 @@ export async function fetchKeysetPage<Row>(input: {
   };
 }
 
-/** One page of a plain limit/offset list and its total, fetched together; a page past the end shows the last page. */
+/** Select this as `total` to get the number of matching rows on every row (computed before LIMIT/OFFSET). */
+export const windowTotal = sql<number>`(count(*) over ())::int`;
+
+/**
+ * One page of a plain limit/offset list and its total; a page past the end shows the last page. With `totalOf`
+ * the rows carry the total (select `windowTotal`), so a page is one query; `count` then only runs when a page
+ * past the end comes back empty. Without it, the count and the rows are fetched together.
+ */
 export async function fetchOffsetPage<Row>(input: {
   request: PageRequest;
   count: () => Promise<number>;
   fetch: (limit: number, offset: number) => Promise<Row[]>;
+  totalOf?: (row: Row) => number;
 }): Promise<OffsetPage<Row>> {
   let page = input.request.page;
+  if (input.totalOf) {
+    let rows = await input.fetch(PAGE_SIZE, (page - 1) * PAGE_SIZE);
+    let total = rows[0] ? input.totalOf(rows[0]) : 0;
+    if (rows.length === 0 && page > 1) {
+      total = await input.count();
+      if (total > 0) {
+        page = clampPage(page, total);
+        rows = await input.fetch(PAGE_SIZE, (page - 1) * PAGE_SIZE);
+      }
+    }
+    return { rows, info: pageInfo(page, total, rows.length) };
+  }
   let [total, rows] = await Promise.all([input.count(), input.fetch(PAGE_SIZE, (page - 1) * PAGE_SIZE)]);
   if (rows.length === 0 && total > 0) {
     page = clampPage(page, total);

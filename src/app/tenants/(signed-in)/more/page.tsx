@@ -19,7 +19,7 @@ export default function MorePage() {
       <ul className="grid gap-2">
         {LINKS.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-card px-4 text-foreground no-underline hover:bg-surface-muted">
+            <Link prefetch={false} href={link.href} className="flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-card px-4 text-foreground no-underline hover:bg-surface-muted">
               <link.icon className="size-5 text-heading" aria-hidden />
               <span className="flex-1">
                 <span className="block font-medium text-heading">{link.label}</span>

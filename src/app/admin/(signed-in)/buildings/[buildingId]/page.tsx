@@ -82,7 +82,7 @@ export default async function BuildingPage({ params, searchParams }: PageProps<"
 
       <nav aria-label="Filter units" className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {FILTERS.map((option) => (
-          <Link
+          <Link prefetch={false}
             key={option}
             href={option === "all" ? `/admin/buildings/${building.id}` : `/admin/buildings/${building.id}?status=${option}`}
             aria-current={filter === option ? "page" : undefined}

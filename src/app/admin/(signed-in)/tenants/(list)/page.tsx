@@ -38,7 +38,7 @@ export default async function TenantsPage({ searchParams }: PageProps<"/admin/te
         title="Tenants"
         actions={
           <Button asChild size="sm">
-            <Link href="/admin/move-in" className="no-underline">Move in a tenant</Link>
+            <Link prefetch={false} href="/admin/move-in" className="no-underline">Move in a tenant</Link>
           </Button>
         }
       />
@@ -75,7 +75,7 @@ async function TenantRows({ query, filter, params }: { query: string; filter: Te
               header: "Tenant",
               primary: true,
               cell: (row) => (
-                <Link href={`/admin/tenants/${row.tenantId}`} className="inline-flex items-center gap-2.5 font-medium">
+                <Link prefetch={false} href={`/admin/tenants/${row.tenantId}`} className="inline-flex items-center gap-2.5 font-medium">
                   <Avatar name={row.fullName} src={avatarUrl(row.tenantId, row.avatarKey)} className="size-8 text-xs" />
                   {row.fullName}
                 </Link>

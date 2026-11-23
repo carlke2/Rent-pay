@@ -5,7 +5,7 @@ export function TenantHeading({ title, description, back }: { title: string; des
   return (
     <div className="mb-5">
       {back ? (
-        <Link href={back} className="-ml-2 mb-2 inline-grid size-11 place-items-center rounded-full text-heading no-underline hover:bg-surface-muted print:hidden" aria-label="Back">
+        <Link prefetch={false} href={back} className="-ml-2 mb-2 inline-grid size-11 place-items-center rounded-full text-heading no-underline hover:bg-surface-muted print:hidden" aria-label="Back">
           <ArrowLeft className="size-5" />
         </Link>
       ) : null}

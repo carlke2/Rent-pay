@@ -7,7 +7,7 @@ import { SendReminderButton } from "@/components/admin/send-reminder-button";
 import { Avatar } from "@/components/shared/avatar";
 import { Amount, dashboardCard as card, dashboardTable, HighlightBadge, HighlightTile, Pill, SectionHeader, StatTile as StatCard } from "@/components/shared/dashboard";
 import { StatusBadge, statusSurfaceClass } from "@/components/shared/status-badge";
-import { TrendChart } from "@/components/shared/trend-chart";
+import { TrendChart } from "@/components/shared/trend-chart-lazy";
 import { Button } from "@/components/shared/ui/button";
 import { dashboard, type AttentionItem, type BoardUnit } from "@/services/reports";
 import { cn } from "@/utilities/class-names";
@@ -32,7 +32,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/admin">
           <p className="mt-1 text-sm text-text-secondary">Updates the moment a payment arrives</p>
         </div>
         <Button asChild size="sm" className="px-4">
-          <Link href={`/admin/reports?report=collection-summary&period=${data.period}`} className="no-underline">
+          <Link prefetch={false} href={`/admin/reports?report=collection-summary&period=${data.period}`} className="no-underline">
             Collection report <ArrowUpRight aria-hidden />
           </Link>
         </Button>
@@ -129,7 +129,7 @@ function NeedsAttention({ items, total }: { items: AttentionItem[]; total: numbe
       )}
       {total > items.length ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          {total - items.length} more · <Link href="/admin/payments?tab=unmatched">Payments</Link> · <Link href="/admin/meter-readings">Meter readings</Link>
+          {total - items.length} more · <Link prefetch={false} href="/admin/payments?tab=unmatched">Payments</Link> · <Link prefetch={false} href="/admin/meter-readings">Meter readings</Link>
         </p>
       ) : null}
     </section>
@@ -141,7 +141,7 @@ function AttentionAction({ item }: { item: AttentionItem }) {
   if (item.kind === "unmatched") {
     return (
       <Button asChild size="sm" className={small}>
-        <Link href={item.href} className="no-underline" aria-label={`Assign ${item.title}`}>
+        <Link prefetch={false} href={item.href} className="no-underline" aria-label={`Assign ${item.title}`}>
           Assign
         </Link>
       </Button>
@@ -151,7 +151,7 @@ function AttentionAction({ item }: { item: AttentionItem }) {
     const label = item.kind === "claim" ? "Review" : "Check";
     return (
       <Button asChild size="sm" variant="outline" className={cn(small, "text-foreground")}>
-        <Link href={item.href} className="no-underline" aria-label={`${label}: ${item.title}`}>
+        <Link prefetch={false} href={item.href} className="no-underline" aria-label={`${label}: ${item.title}`}>
           {label}
         </Link>
       </Button>
@@ -171,7 +171,7 @@ function LatestPayments({ payments }: { payments: LatestPayment[] }) {
           title="Latest payments"
           action={
             <Button asChild size="sm" variant="outline" className="px-3 text-foreground">
-              <Link href="/admin/payments" className="no-underline">
+              <Link prefetch={false} href="/admin/payments" className="no-underline">
                 All payments <ArrowUpRight aria-hidden />
               </Link>
             </Button>
@@ -205,13 +205,13 @@ function LatestPayments({ payments }: { payments: LatestPayment[] }) {
               </dl>
               {payment.matchStatus === "unmatched" ? (
                 <Button asChild size="sm" className="mt-1 w-full">
-                  <Link href={`/admin/payments?tab=unmatched&payment=${payment.id}`} className="no-underline">
+                  <Link prefetch={false} href={`/admin/payments?tab=unmatched&payment=${payment.id}`} className="no-underline">
                     Assign
                   </Link>
                 </Button>
               ) : payment.receiptToken ? (
                 <Button asChild size="sm" variant="outline" className="mt-1 w-full text-foreground">
-                  <Link href={`/receipts/${payment.receiptToken}`} target="_blank" rel="noreferrer" className="no-underline">
+                  <Link prefetch={false} href={`/receipts/${payment.receiptToken}`} target="_blank" rel="noreferrer" className="no-underline">
                     Receipt
                   </Link>
                 </Button>
@@ -255,13 +255,13 @@ function LatestPayments({ payments }: { payments: LatestPayment[] }) {
                   <td className="px-5 py-3 text-right">
                     {payment.matchStatus === "unmatched" ? (
                       <Button asChild size="sm" className="px-3">
-                        <Link href={`/admin/payments?tab=unmatched&payment=${payment.id}`} className="no-underline">
+                        <Link prefetch={false} href={`/admin/payments?tab=unmatched&payment=${payment.id}`} className="no-underline">
                           Assign
                         </Link>
                       </Button>
                     ) : payment.receiptToken ? (
                       <Button asChild size="sm" variant="outline" className="px-3 text-foreground">
-                        <Link href={`/receipts/${payment.receiptToken}`} target="_blank" rel="noreferrer" className="no-underline">
+                        <Link prefetch={false} href={`/receipts/${payment.receiptToken}`} target="_blank" rel="noreferrer" className="no-underline">
                           Receipt
                         </Link>
                       </Button>
@@ -312,7 +312,7 @@ function Buildings({ buildings }: { buildings: Awaited<ReturnType<typeof dashboa
       </div>
       {buildings.length === 0 ? (
         <p className={cn(card, "p-8 text-center text-sm text-muted-foreground")}>
-          No buildings yet. <Link href="/admin/buildings">Add your first building</Link>.
+          No buildings yet. <Link prefetch={false} href="/admin/buildings">Add your first building</Link>.
         </p>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
@@ -321,7 +321,7 @@ function Buildings({ buildings }: { buildings: Awaited<ReturnType<typeof dashboa
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="truncate text-base font-semibold">
-                    <Link href={`/admin/buildings/${building.buildingId}`} className="inline-flex items-center text-heading pointer-coarse:min-h-11 no-underline hover:text-heading hover:underline">
+                    <Link prefetch={false} href={`/admin/buildings/${building.buildingId}`} className="inline-flex items-center text-heading pointer-coarse:min-h-11 no-underline hover:text-heading hover:underline">
                       {building.buildingName}
                     </Link>
                   </h3>
@@ -340,7 +340,7 @@ function Buildings({ buildings }: { buildings: Awaited<ReturnType<typeof dashboa
                   const status = tileStatus(unit);
                   return (
                     <li key={unit.unitId}>
-                      <Link
+                      <Link prefetch={false}
                         href={`/admin/units/${unit.unitId}`}
                         aria-label={`${unit.unitCode}: ${STATUS_WORDS[status] ?? status}, balance ${formatShillings(Math.max(0, unit.balance))}`}
                         title={`${unit.unitCode}${unit.tenantName ? ` · ${unit.tenantName}` : ""}`}

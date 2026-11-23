@@ -14,7 +14,7 @@ import {
   StatTile,
 } from "@/components/shared/dashboard";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { TrendChart } from "@/components/shared/trend-chart";
+import { TrendChart } from "@/components/shared/trend-chart-lazy";
 import { Button } from "@/components/shared/ui/button";
 import { PaybillCard } from "@/components/tenants/paybill-card";
 import { getTenantOverview } from "@/services/portal";
@@ -46,14 +46,14 @@ export default async function TenantOverviewPage() {
         actions={
           <>
             <Button asChild size="sm" variant="outline" className="px-4 text-foreground">
-              <Link href="/tenants/statement" className="no-underline">
+              <Link prefetch={false} href="/tenants/statement" className="no-underline">
                 Statement <ArrowUpRight aria-hidden />
               </Link>
             </Button>
             {canPay ? (
               // On phones the Pay button lives full width in the Amount due card instead.
               <Button asChild size="sm" className="hidden px-4 sm:inline-flex">
-                <Link href="/tenants/pay" className="no-underline">
+                <Link prefetch={false} href="/tenants/pay" className="no-underline">
                   <Smartphone aria-hidden /> Pay rent
                 </Link>
               </Button>
@@ -70,7 +70,7 @@ export default async function TenantOverviewPage() {
           note={owes ? `Due ${formatDate(home.dueDate)}` : home.balance < 0 ? "Goes towards your next bill" : `Next rent due ${formatDate(home.dueDate)}`}
         >
           {canPay && owes ? (
-            <Link
+            <Link prefetch={false}
               href="/tenants/pay"
               className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary-foreground px-4 text-sm font-semibold text-primary no-underline hover:bg-primary-foreground/85 hover:text-primary"
             >
@@ -91,7 +91,7 @@ export default async function TenantOverviewPage() {
                 {home.lastPayment.receiptToken ? (
                   <>
                     {" · "}
-                    <Link href={`/receipts/${home.lastPayment.receiptToken}`} target="_blank" rel="noreferrer">
+                    <Link prefetch={false} href={`/receipts/${home.lastPayment.receiptToken}`} target="_blank" rel="noreferrer">
                       Receipt
                     </Link>
                   </>
@@ -123,7 +123,7 @@ export default async function TenantOverviewPage() {
         </section>
         <div className="grid min-w-0 content-start gap-4">
           <PaybillCard paybill={home.paybill} account={lease.unitCode} title="How to pay" className={cn(card, "p-5")} />
-          <Link href="/tenants/report-payment" className={cn(card, "flex items-center gap-3 p-4 text-foreground no-underline hover:border-border-strong hover:text-foreground")}>
+          <Link prefetch={false} href="/tenants/report-payment" className={cn(card, "flex items-center gap-3 p-4 text-foreground no-underline hover:border-border-strong hover:text-foreground")}>
             <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-status-info-surface text-status-info ring-1 ring-status-info-border/60">
               <UploadCloud className="size-[18px]" aria-hidden />
             </span>
@@ -151,7 +151,7 @@ type Receipt = Overview["recentReceipts"][number];
 function AllLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Button asChild size="sm" variant="outline" className="px-3 text-foreground">
-      <Link href={href} className="no-underline">
+      <Link prefetch={false} href={href} className="no-underline">
         {children} <ArrowUpRight aria-hidden />
       </Link>
     </Button>
@@ -172,7 +172,7 @@ function RecentBills({ bills }: { bills: Bill[] }) {
           <ul className="divide-y border-t md:hidden">
             {bills.map((bill) => (
               <li key={bill.invoiceId}>
-                <Link href={`/tenants/bills/${bill.invoiceId}`} className="flex items-center gap-3 px-5 py-3 text-foreground no-underline hover:bg-surface-raised/50 hover:text-foreground">
+                <Link prefetch={false} href={`/tenants/bills/${bill.invoiceId}`} className="flex items-center gap-3 px-5 py-3 text-foreground no-underline hover:bg-surface-raised/50 hover:text-foreground">
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium text-heading">{formatPeriod(bill.period)}</span>
                     <span className="numbers block text-xs text-muted-foreground">
@@ -205,7 +205,7 @@ function RecentBills({ bills }: { bills: Bill[] }) {
                   // The row is clickable via the stretched month link; the chevron is decorative.
                   <tr key={bill.invoiceId} className={cn(dashboardTable.row, "relative")}>
                     <td className={cn(dashboardTable.td, "font-medium whitespace-nowrap text-heading")}>
-                      <Link href={`/tenants/bills/${bill.invoiceId}`} className="text-heading no-underline after:absolute after:inset-0 hover:text-heading">
+                      <Link prefetch={false} href={`/tenants/bills/${bill.invoiceId}`} className="text-heading no-underline after:absolute after:inset-0 hover:text-heading">
                         {formatPeriod(bill.period)}
                       </Link>
                     </td>
@@ -241,7 +241,7 @@ function RecentReceipts({ receipts }: { receipts: Receipt[] }) {
         <ul className="divide-y border-t">
           {receipts.map((receipt) => (
             <li key={receipt.paymentId}>
-              <Link
+              <Link prefetch={false}
                 href={`/receipts/${receipt.receiptToken}`}
                 target="_blank"
                 rel="noreferrer"

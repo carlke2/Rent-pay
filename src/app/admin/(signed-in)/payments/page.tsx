@@ -152,7 +152,7 @@ async function PaymentRows(props: Parameters<typeof PaymentList>[0]) {
               cell: (row) =>
                 row.tenantId ? (
                   <span className="flex flex-col gap-1">
-                    <Link href={`/admin/tenants/${row.tenantId}`}>{row.unitCode} · {row.tenantName}</Link>
+                    <Link prefetch={false} href={`/admin/tenants/${row.tenantId}`}>{row.unitCode} · {row.tenantName}</Link>
                     {row.paidByOther ? <PaidByOtherTag /> : null}
                   </span>
                 ) : (
@@ -180,7 +180,7 @@ async function PaymentRows(props: Parameters<typeof PaymentList>[0]) {
                 <div className="flex flex-wrap justify-end gap-2">
                   {row.receiptToken && !row.receiptVoided ? (
                     <Button asChild variant="ghost" size="sm">
-                      <Link href={`/receipts/${row.receiptToken}`} target="_blank">{row.receiptNumber}</Link>
+                      <Link prefetch={false} href={`/receipts/${row.receiptToken}`} target="_blank">{row.receiptNumber}</Link>
                     </Button>
                   ) : null}
                   {row.matchStatus === "unmatched" ? (

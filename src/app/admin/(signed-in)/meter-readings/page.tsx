@@ -5,14 +5,15 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar } from "@/components/shared/filter-bar";
 import { PageHeader } from "@/components/shared/page-header";
 import { getMeterReadingSheet } from "@/services/billing";
-import { listBuildings } from "@/services/tenancy";
 import { currentPeriod, formatPeriod, isBillingPeriod } from "@/utilities/dates";
+import { adminShellSummary } from "@/services/reports";
 
 export const metadata: Metadata = { title: "Meter readings" };
 
 export default async function MeterReadingsPage({ searchParams }: PageProps<"/admin/meter-readings">) {
   const query = await searchParams;
-  const buildings = await listBuildings();
+  // Same list the sidebar shows: cached and shared with the layout, so no extra query.
+  const { buildings } = await adminShellSummary();
   const buildingId = typeof query.building === "string" && buildings.some((b) => b.id === query.building) ? query.building : buildings[0]?.id;
   const period = typeof query.period === "string" && isBillingPeriod(query.period) ? query.period : currentPeriod();
   const sheet = buildingId ? await getMeterReadingSheet({ buildingId, period }) : null;

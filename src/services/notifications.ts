@@ -5,7 +5,7 @@ import { createBillLink, createPayLink } from "@/authentication/pay-links";
 import { getEnvironment } from "@/configuration/environment";
 import { graceEndsOn } from "@/core/billing";
 import { getDatabase } from "@/database/client";
-import { fetchOffsetPage } from "@/database/keyset";
+import { fetchOffsetPage, windowTotal } from "@/database/keyset";
 import type { PageRequest } from "@/utilities/pagination";
 import {
   invoiceLines,
@@ -1007,9 +1007,10 @@ function messageConditions(filter: MessageFilter) {
   );
 }
 
-function messageQuery(filter: MessageFilter) {
+function messageQuery(filter: MessageFilter, withTotal = false) {
   return getDatabase()
     .select({
+      ...(withTotal ? { total: windowTotal } : {}),
       id: messages.id,
       createdAt: messages.createdAt,
       recipient: messages.recipient,
@@ -1046,7 +1047,8 @@ export async function pageMessages(filter: MessageFilter, request: PageRequest) 
       ).where(messageConditions(filter));
       return row?.count ?? 0;
     },
-    fetch: (limit, offset) => messageQuery(filter).limit(limit).offset(offset),
+    fetch: (limit, offset) => messageQuery(filter, true).limit(limit).offset(offset),
+    totalOf: (row) => row.total ?? 0,
   });
 }
 

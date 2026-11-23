@@ -87,8 +87,8 @@ export async function unitStatusBoard(input: { today?: IsoDate; period?: Billing
   const period = input.period ? assertBillingPeriod(input.period) : periodOf(today);
   const statusPeriod = periodOf(today);
   const [periodStart, periodEnd] = periodBounds(statusPeriod);
-  const resolver = await loadPolicyResolver();
-  const [unitRows, leaseRows] = await Promise.all([
+  const [resolver, unitRows, leaseRows] = await Promise.all([
+    loadPolicyResolver(),
     query<{ unitId: string; unitCode: string; unitStatus: string; buildingId: string; buildingName: string }>(sql`
       select u.id as "unitId", u.code as "unitCode", u.status as "unitStatus", b.id as "buildingId", b.name as "buildingName"
       from units u join buildings b on b.id = u.building_id
@@ -176,7 +176,9 @@ const shortAmount = (amount: number) => `KES ${amount.toLocaleString("en-KE")}`;
  * What needs the landlord, in order: unmatched payments, waiting claims, flagged readings, overdue leases (oldest first).
  * `total` counts every item; `items` holds the first `limit`.
  */
-export async function attentionItems(input: { today?: IsoDate; limit?: number; board?: Awaited<ReturnType<typeof unitStatusBoard>> } = {}) {
+export async function attentionItems(
+  input: { today?: IsoDate; limit?: number; board?: Awaited<ReturnType<typeof unitStatusBoard>> | ReturnType<typeof unitStatusBoard> } = {},
+) {
   const today = input.today ?? todayInNairobi();
   const limit = input.limit ?? 5;
   const [board, unmatched, claims, readings, reminded] = await Promise.all([
@@ -320,8 +322,11 @@ export async function dashboard(input: { period?: BillingPeriod; today?: IsoDate
   const today = input.today ?? todayInNairobi();
   const period = input.period ? assertBillingPeriod(input.period) : periodOf(today);
 
-  const [board, trend, latest, paidUnitsRows] = await Promise.all([
-    unitStatusBoard({ today, period }),
+  // Everything starts at once: the attention list's own queries run while the unit board loads, and it uses
+  // the same board (as a promise) instead of waiting for it before starting.
+  const boardPromise = unitStatusBoard({ today, period });
+  const [board, trend, latest, paidUnitsRows, attention] = await Promise.all([
+    boardPromise,
     collectionTrend({ period }),
     query<{
       id: string;
@@ -348,8 +353,8 @@ export async function dashboard(input: { period?: BillingPeriod; today?: IsoDate
         where i.period = ${period}
         group by i.lease_id
         having sum(il.amount - il.waived_amount) > 0 and sum(${LINE_OPEN}) <= 0) x`),
+    attentionItems({ today, limit: 5, board: period === periodOf(today) ? boardPromise : undefined }),
   ]);
-  const attention = await attentionItems({ today, limit: 5, board: period === periodOf(today) ? board : undefined });
 
   const units = board.flatMap((group) => group.units);
   const occupied = units.filter((unit) => unit.leaseId).length;

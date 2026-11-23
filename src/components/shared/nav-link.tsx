@@ -8,9 +8,10 @@ import { cn } from "@/utilities/class-names";
  * Next.js Link with an instant pending state while the destination RSC loads.
  * Makes tab/sidebar switches feel responsive even when the server is still working.
  */
-export function NavLink({ className, children, pendingClassName, ...props }: ComponentProps<typeof Link> & { pendingClassName?: string }) {
+export function NavLink({ className, children, pendingClassName, prefetch = false, ...props }: ComponentProps<typeof Link> & { pendingClassName?: string }) {
+  // No prefetch by default: a sidebar would otherwise request every page in it as soon as it is on screen.
   return (
-    <Link {...props} className={cn("relative", className)}>
+    <Link {...props} prefetch={prefetch} className={cn("relative", className)}>
       {children}
       <PendingOverlay className={pendingClassName} />
     </Link>

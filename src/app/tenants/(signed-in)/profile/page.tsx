@@ -31,7 +31,7 @@ export default async function ProfilePage() {
     // 640–767px the page padding is 24px; pull back to 16px. From md the column centres; from lg two columns.
     <div className="sm:-mx-2 md:mx-auto md:max-w-[420px] lg:mx-0 lg:flex lg:max-w-none lg:items-start lg:gap-6">
       {/* Phones and tablets reach Profile from the More tab: keep the way back. */}
-      <Link href="/tenants/more" className="-mt-2 mb-2 -ml-2 inline-grid size-11 place-items-center rounded-full text-heading no-underline hover:bg-surface-muted lg:hidden print:hidden" aria-label="Back">
+      <Link prefetch={false} href="/tenants/more" className="-mt-2 mb-2 -ml-2 inline-grid size-11 place-items-center rounded-full text-heading no-underline hover:bg-surface-muted lg:hidden print:hidden" aria-label="Back">
         <ArrowLeft className="size-5" aria-hidden />
       </Link>
 

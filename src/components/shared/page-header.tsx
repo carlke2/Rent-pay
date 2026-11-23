@@ -19,7 +19,7 @@ export function PageHeader({
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {back ? (
-          <Link href={back.href} className="mb-1 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground no-underline hover:text-foreground print:hidden">
+          <Link prefetch={false} href={back.href} className="mb-1 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground no-underline hover:text-foreground print:hidden">
             <ChevronLeft className="size-4" /> {back.label}
           </Link>
         ) : null}

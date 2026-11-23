@@ -19,7 +19,7 @@ export default function SettingsPage() {
       <ul className="grid gap-3">
         {SECTIONS.map((section) => (
           <li key={section.href}>
-            <Link href={section.href} className="flex items-center gap-4 rounded-xl border bg-card p-4 text-foreground no-underline hover:border-brand">
+            <Link prefetch={false} href={section.href} className="flex items-center gap-4 rounded-xl border bg-card p-4 text-foreground no-underline hover:border-brand">
               <section.icon className="size-5 text-brand" aria-hidden />
               <span className="flex-1">
                 <span className="block font-medium">{section.title}</span>

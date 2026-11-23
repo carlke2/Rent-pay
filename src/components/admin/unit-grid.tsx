@@ -10,7 +10,7 @@ export function UnitGrid({ units }: { units: BoardUnit[] }) {
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       {units.map((unit) => (
         <li key={unit.unitId}>
-          <Link
+          <Link prefetch={false}
             href={`/admin/units/${unit.unitId}`}
             className={cn(
               "flex h-full flex-col gap-2 rounded-xl border bg-card p-3 text-foreground no-underline transition hover:border-brand hover:shadow-sm",
@@ -39,7 +39,7 @@ export function MiniUnitGrid({ units }: { units: BoardUnit[] }) {
     <ul className="flex flex-wrap gap-1.5">
       {units.map((unit) => (
         <li key={unit.unitId}>
-          <Link
+          <Link prefetch={false}
             href={`/admin/units/${unit.unitId}`}
             title={`${unit.unitCode}: ${unit.paymentStatus}${unit.tenantName ? `, ${unit.tenantName}` : ""}`}
             className={cn("inline-flex h-11 min-w-14 items-center justify-center rounded-md border px-2 text-xs font-medium no-underline", statusSurfaceClass(unit.paymentStatus))}

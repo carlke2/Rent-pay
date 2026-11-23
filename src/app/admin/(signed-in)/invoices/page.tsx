@@ -12,11 +12,11 @@ import { ResponsiveTable } from "@/components/shared/responsive-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TableCell, TableRow } from "@/components/shared/ui/table";
 import { listInvoices } from "@/services/billing";
-import { listBuildings } from "@/services/tenancy";
 import { currentPeriod, formatDate, formatPeriod, isBillingPeriod } from "@/utilities/dates";
 import { sumShillings } from "@/utilities/money";
 import { readPageRequest, slicePage, type SearchParams } from "@/utilities/pagination";
 import type { InvoiceStatus } from "@/services/billing";
+import { adminShellSummary } from "@/services/reports";
 
 const STATUSES: { value: InvoiceStatus | ""; label: string }[] = [
   { value: "", label: "All statuses" },
@@ -33,7 +33,8 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/admin/i
   const period = typeof query.period === "string" && isBillingPeriod(query.period) ? query.period : currentPeriod();
   const buildingId = typeof query.building === "string" && query.building ? query.building : undefined;
   const status = STATUSES.find((option) => option.value && option.value === query.status)?.value || undefined;
-  const buildings = await listBuildings();
+  // Same list the sidebar shows: cached and shared with the layout, so no extra query.
+  const { buildings } = await adminShellSummary();
 
   return (
     <>

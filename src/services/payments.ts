@@ -14,7 +14,7 @@ import {
 import { paymentEntry } from "@/core/ledger";
 import { isPaidByOther, matchPayment, normaliseUnitCode, RECENTLY_ENDED_DAYS } from "@/core/payments";
 import { getDatabase, type Transaction } from "@/database/client";
-import { fetchKeysetPage, fetchOffsetPage, type KeysetKey } from "@/database/keyset";
+import { fetchKeysetPage, fetchOffsetPage, type KeysetKey, windowTotal } from "@/database/keyset";
 import {
   allocations,
   auditLog,
@@ -1388,7 +1388,8 @@ export async function pagePaymentClaims(filter: ClaimFilter, request: PageReques
   return fetchOffsetPage({
     request,
     count: async () => (await getDatabase().select({ count: sql<number>`count(*)::int` }).from(paymentClaims).where(claimConditions(filter)))[0]?.count ?? 0,
-    fetch: (limit, offset) => claimQuery(filter).limit(limit).offset(offset),
+    fetch: (limit, offset) => claimQuery(filter, true).limit(limit).offset(offset),
+    totalOf: (row) => row.total ?? 0,
   });
 }
 
@@ -1396,9 +1397,10 @@ export async function listPaymentClaims(filter: ClaimFilter = {}) {
   return claimQuery(filter).limit(200);
 }
 
-function claimQuery(filter: ClaimFilter) {
+function claimQuery(filter: ClaimFilter, withTotal = false) {
   return getDatabase()
     .select({
+      ...(withTotal ? { total: windowTotal } : {}),
       id: paymentClaims.id,
       leaseId: paymentClaims.leaseId,
       amount: paymentClaims.amount,
@@ -1435,7 +1437,8 @@ export async function pagePaymentRequests(filter: RequestFilter, request: PageRe
   return fetchOffsetPage({
     request,
     count: async () => (await getDatabase().select({ count: sql<number>`count(*)::int` }).from(paymentRequests).where(requestConditions(filter)))[0]?.count ?? 0,
-    fetch: (limit, offset) => requestQuery(filter).limit(limit).offset(offset),
+    fetch: (limit, offset) => requestQuery(filter, true).limit(limit).offset(offset),
+    totalOf: (row) => row.total ?? 0,
   });
 }
 
@@ -1443,9 +1446,10 @@ export async function listPaymentRequests(filter: RequestFilter = {}) {
   return requestQuery(filter).limit(200);
 }
 
-function requestQuery(filter: RequestFilter) {
+function requestQuery(filter: RequestFilter, withTotal = false) {
   return getDatabase()
     .select({
+      ...(withTotal ? { total: windowTotal } : {}),
       id: paymentRequests.id,
       amount: paymentRequests.amount,
       phone: paymentRequests.phone,

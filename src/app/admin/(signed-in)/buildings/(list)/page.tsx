@@ -36,7 +36,7 @@ export default async function BuildingsPage() {
           rows={buildings}
           rowKey={(row) => row.id}
           columns={[
-            { key: "name", header: "Building", primary: true, cell: (row) => <Link href={`/admin/buildings/${row.id}`} className="font-medium">{row.name}</Link> },
+            { key: "name", header: "Building", primary: true, cell: (row) => <Link prefetch={false} href={`/admin/buildings/${row.id}`} className="font-medium">{row.name}</Link> },
             { key: "location", header: "Location", cell: (row) => row.location ?? "–" },
             { key: "prefix", header: "Prefix", cell: (row) => row.codePrefix },
             { key: "units", header: "Units", align: "right", cell: (row) => row.units },

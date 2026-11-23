@@ -126,11 +126,11 @@ function Progress({ requestId, amount, paybill, account, onRetry }: { requestId:
         </dl>
         {progress.receiptToken ? (
           <Button asChild size="lg" className="w-full">
-            <Link href={`/receipts/${progress.receiptToken}`} className="no-underline">View receipt</Link>
+            <Link prefetch={false} href={`/receipts/${progress.receiptToken}`} className="no-underline">View receipt</Link>
           </Button>
         ) : null}
         <Button asChild size="lg" variant="outline" className="w-full">
-          <Link href="/tenants" className="no-underline">Back home</Link>
+          <Link prefetch={false} href="/tenants" className="no-underline">Back home</Link>
         </Button>
       </div>
     );

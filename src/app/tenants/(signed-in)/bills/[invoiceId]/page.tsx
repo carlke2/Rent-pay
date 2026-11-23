@@ -74,7 +74,7 @@ export default async function BillPage({ params }: PageProps<"/tenants/bills/[in
                   {payment.receiptToken ? (
                     <>
                       {" · "}
-                      <Link href={`/receipts/${payment.receiptToken}`}>{payment.receiptNumber}</Link>
+                      <Link prefetch={false} href={`/receipts/${payment.receiptToken}`}>{payment.receiptNumber}</Link>
                     </>
                   ) : null}
                 </span>

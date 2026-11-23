@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { and, asc, desc, eq, gte, inArray, isNotNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import {
   assessReading,
@@ -616,29 +617,54 @@ export async function listInvoices(input: { period: BillingPeriod; today?: IsoDa
   const period = assertBillingPeriod(input.period);
   const today = input.today ?? todayInNairobi();
   const database = getDatabase();
-  const resolver = await loadPolicyResolver(database);
+  const inScope = and(eq(invoices.period, period), input.buildingId ? eq(units.buildingId, input.buildingId) : undefined);
 
-  const invoiceRows = await database
-    .select({
-      id: invoices.id,
-      number: invoices.number,
-      leaseId: invoices.leaseId,
-      period: invoices.period,
-      issueDate: invoices.issueDate,
-      dueDate: invoices.dueDate,
-      total: invoices.total,
-      unitCode: units.code,
-      buildingId: units.buildingId,
-    })
-    .from(invoices)
-    .innerJoin(leases, eq(leases.id, invoices.leaseId))
-    .innerJoin(units, eq(units.id, leases.unitId))
-    .where(and(eq(invoices.period, period), input.buildingId ? eq(units.buildingId, input.buildingId) : undefined))
-    .orderBy(asc(invoices.number));
+  // One round: policies, the month's invoices, and only that month's lines (not every line of those leases).
+  const [resolver, invoiceRows, lineRows] = await Promise.all([
+    loadPolicyResolver(database),
+    database
+      .select({
+        id: invoices.id,
+        number: invoices.number,
+        leaseId: invoices.leaseId,
+        period: invoices.period,
+        issueDate: invoices.issueDate,
+        dueDate: invoices.dueDate,
+        total: invoices.total,
+        unitCode: units.code,
+        buildingId: units.buildingId,
+      })
+      .from(invoices)
+      .innerJoin(leases, eq(leases.id, invoices.leaseId))
+      .innerJoin(units, eq(units.id, leases.unitId))
+      .where(inScope)
+      .orderBy(asc(invoices.number)),
+    database
+      .select({
+        invoiceLineId: invoiceLines.id,
+        invoiceId: invoiceLines.invoiceId,
+        type: invoiceLines.type,
+        amount: invoiceLines.amount,
+        waived: invoiceLines.waivedAmount,
+        allocated: lineAllocated,
+      })
+      .from(invoiceLines)
+      .innerJoin(invoices, eq(invoices.id, invoiceLines.invoiceId))
+      .innerJoin(leases, eq(leases.id, invoices.leaseId))
+      .innerJoin(units, eq(units.id, leases.unitId))
+      .where(inScope)
+      // Lines saved together share created_at; the id keeps their order stable between loads.
+      .orderBy(asc(invoiceLines.createdAt), asc(invoiceLines.id)),
+  ]);
 
-  const lines = await loadLines(database, [...new Set(invoiceRows.map((invoice) => invoice.leaseId))]);
+  const linesByInvoice = new Map<string, ((typeof lineRows)[number] & { outstanding: number })[]>();
+  for (const line of lineRows) {
+    const own = linesByInvoice.get(line.invoiceId) ?? [];
+    own.push({ ...line, outstanding: Math.max(0, line.amount - line.allocated - line.waived) });
+    linesByInvoice.set(line.invoiceId, own);
+  }
   return invoiceRows.map((invoice) => {
-    const own = lines.filter((line) => line.invoiceId === invoice.id);
+    const own = linesByInvoice.get(invoice.id) ?? [];
     const open = sumShillings(own.map((line) => line.outstanding));
     const paid = sumShillings(own.map((line) => line.allocated));
     const waived = sumShillings(own.map((line) => line.waived));
@@ -1034,33 +1060,42 @@ const LEDGER_KEYS: KeysetKey[] = [
  */
 export async function getLeaseStatementPage(input: { leaseId: string; from?: IsoDate; to?: IsoDate }, request: PageRequest) {
   const database = getDatabase();
-  const [lease] = await database
+  const leaseQuery = database
     .select({ id: leases.id, startDate: leases.startDate, unitCode: units.code })
     .from(leases)
     .innerJoin(units, eq(units.id, leases.unitId))
     .where(eq(leases.id, input.leaseId));
-  if (!lease) throw new BillingError("Lease not found");
+  // The lease is only needed first when the range starts at its start date; otherwise it loads with the rest.
+  const knownLease = input.from ? null : ((await leaseQuery)[0] ?? null);
+  if (!input.from && !knownLease) throw new BillingError("Lease not found");
 
-  const from = input.from ? assertIsoDate(input.from) : lease.startDate;
+  const from = input.from ? assertIsoDate(input.from) : knownLease!.startDate;
   const to = input.to ? assertIsoDate(input.to) : from > todayInNairobi() ? from : todayInNairobi();
   if (from > to) throw new BillingError("from must be on or before to");
-  const inRange = and(eq(ledgerEntries.leaseId, lease.id), gte(ledgerEntries.entryDate, from), lte(ledgerEntries.entryDate, to));
+  const inRange = and(eq(ledgerEntries.leaseId, input.leaseId), gte(ledgerEntries.entryDate, from), lte(ledgerEntries.entryDate, to));
+  const amount = sql`${ledgerEntries.debit} - ${ledgerEntries.credit}`;
 
+  // One round: the lease (if not loaded yet), the totals (opening balance, entries and sum in the range) in one
+  // query, and the page of rows, each carrying the sum of the range's entries before it, so the running balance
+  // carries across pages without another query.
+  let opening = 0;
   let rangeSum = 0;
-  const [[opening], page] = await Promise.all([
-    database
-      .select({ balance: sql<number>`coalesce(sum(${ledgerEntries.debit} - ${ledgerEntries.credit}), 0)::int` })
-      .from(ledgerEntries)
-      .where(and(eq(ledgerEntries.leaseId, lease.id), lt(ledgerEntries.entryDate, from))),
+  const [[lease], page] = await Promise.all([
+    knownLease ? Promise.resolve([knownLease]) : leaseQuery,
     fetchKeysetPage({
       keys: LEDGER_KEYS,
       order: "asc",
       request,
       count: async () => {
         const [row] = await database
-          .select({ count: sql<number>`count(*)::int`, sum: sql<number>`coalesce(sum(${ledgerEntries.debit} - ${ledgerEntries.credit}), 0)::int` })
+          .select({
+            count: sql<number>`(count(*) filter (where ${ledgerEntries.entryDate} >= ${from}))::int`,
+            sum: sql<number>`coalesce(sum(${amount}) filter (where ${ledgerEntries.entryDate} >= ${from}), 0)::int`,
+            opening: sql<number>`coalesce(sum(${amount}) filter (where ${ledgerEntries.entryDate} < ${from}), 0)::int`,
+          })
           .from(ledgerEntries)
-          .where(inRange);
+          .where(and(eq(ledgerEntries.leaseId, input.leaseId), lte(ledgerEntries.entryDate, to)));
+        opening = row?.opening ?? 0;
         rangeSum = row?.sum ?? 0;
         return row?.count ?? 0;
       },
@@ -1076,6 +1111,11 @@ export async function getLeaseStatementPage(input: { leaseId: string; from?: Iso
             credit: ledgerEntries.credit,
             description: invoiceLines.description,
             cursorCreatedAt: sql<string>`${ledgerEntries.createdAt}::text`,
+            // Sum of this range's entries that sort before this row (same order as LEDGER_KEYS).
+            before: sql<number>`(select coalesce(sum(e.debit - e.credit), 0) from ledger_entries e
+              where e.lease_id = ${input.leaseId} and e.entry_date >= ${from}
+                and (e.entry_date, e.created_at, case when e.debit > 0 then 0 else 1 end, e.id)
+                  < (${ledgerEntries.entryDate}, ${ledgerEntries.createdAt}, case when ${ledgerEntries.debit} > 0 then 0 else 1 end, ${ledgerEntries.id}))::int`,
           })
           .from(ledgerEntries)
           .leftJoin(invoiceLines, eq(invoiceLines.id, ledgerEntries.invoiceLineId))
@@ -1086,23 +1126,13 @@ export async function getLeaseStatementPage(input: { leaseId: string; from?: Iso
       cursorOf: (row) => [row.date, row.cursorCreatedAt, row.debit > 0 ? "0" : "1", row.id],
     }),
   ]);
+  if (!lease) throw new BillingError("Lease not found");
 
-  const openingBalance = opening?.balance ?? 0;
-  // Everything in the range before this page's first row, so the running balance carries across pages.
-  const firstRow = page.rows[0];
-  let running = openingBalance;
-  if (firstRow) {
-    const columns = sql.join(LEDGER_KEYS.map((key) => key.expression), sql`, `);
-    const [before] = await database
-      .select({ sum: sql<number>`coalesce(sum(${ledgerEntries.debit} - ${ledgerEntries.credit}), 0)::int` })
-      .from(ledgerEntries)
-      .where(and(inRange, sql`(${columns}) < (${firstRow.date}::date, ${firstRow.cursorCreatedAt}::timestamptz, ${firstRow.debit > 0 ? 0 : 1}::int, ${firstRow.id}::uuid)`));
-    running += before?.sum ?? 0;
-  }
-  const entries = page.rows.map(({ cursorCreatedAt: _cursor, ...entry }) => {
-    running += entry.debit - entry.credit;
-    return { ...entry, balance: running };
-  });
+  const openingBalance = opening;
+  const entries = page.rows.map(({ cursorCreatedAt: _cursor, before, ...entry }) => ({
+    ...entry,
+    balance: openingBalance + before + entry.debit - entry.credit,
+  }));
   return {
     leaseId: lease.id,
     unitCode: lease.unitCode,
@@ -1177,9 +1207,15 @@ export async function getMeterReadingSheet(input: { buildingId: string; period: 
   return { period, ratePerUnit: water.ratePerUnit, standingCharge: water.standingCharge, rows };
 }
 
+/**
+ * A lease's invoice lines with open amounts, loaded once per request: the admin tenant page needs them for both
+ * the invoice list and the waive dialog. Only page renders call these two readers (no action reads, writes, reads).
+ */
+const linesOfLease = cache((leaseId: string) => loadLines(getDatabase(), [leaseId]));
+
 /** A lease's invoices with paid and open amounts. */
 export async function listInvoicesForLease(leaseId: string) {
-  const lines = await loadLines(getDatabase(), [leaseId]);
+  const lines = await linesOfLease(leaseId);
   const byInvoice = new Map<string, { invoiceId: string; number: string; period: string; dueDate: string; total: number; paid: number; open: number }>();
   for (const line of lines) {
     const row = byInvoice.get(line.invoiceId) ?? { invoiceId: line.invoiceId, number: line.invoiceNumber, period: line.period, dueDate: line.dueDate, total: 0, paid: 0, open: 0 };
@@ -1193,7 +1229,7 @@ export async function listInvoicesForLease(leaseId: string) {
 
 /** Open lines of a lease (for the waive dialog). */
 export async function listOpenLines(leaseId: string) {
-  return (await loadLines(getDatabase(), [leaseId]))
+  return (await linesOfLease(leaseId))
     .filter((line) => line.outstanding > 0)
     .map((line) => ({ invoiceLineId: line.invoiceLineId, invoiceNumber: line.invoiceNumber, type: line.type, open: line.outstanding }));
 }

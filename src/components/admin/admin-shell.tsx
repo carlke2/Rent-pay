@@ -166,7 +166,7 @@ export function AdminShell(props: AdminShellProps) {
               </button>
             }
             mobileLogo={
-              <Link href="/admin" className="grid size-11 shrink-0 place-items-center lg:hidden" aria-label={`${props.appName} home`}>
+              <Link prefetch={false} href="/admin" className="grid size-11 shrink-0 place-items-center lg:hidden" aria-label={`${props.appName} home`}>
                 <ThemedLogo kind="mark" height={28} priority />
               </Link>
             }
@@ -199,7 +199,7 @@ function SidebarContent({
     <div className="flex h-full min-h-0 flex-col">
       <div className={cn("flex h-[72px] shrink-0 items-center gap-2", rail ? "justify-center px-2" : "justify-between px-4")}>
         {rail ? null : (
-          <Link href="/admin" className="flex min-w-0 items-center" aria-label={`${appName} home`}>
+          <Link prefetch={false} href="/admin" className="flex min-w-0 items-center" aria-label={`${appName} home`}>
             <ThemedLogo kind="full" height={28} priority />
           </Link>
         )}
@@ -333,7 +333,7 @@ function ProfileCard({ name, email, rail }: { name: string; email: string; rail:
     <div className={cn("shrink-0 border-t border-sidebar-border", rail ? "p-2" : "p-3")}>
       <UserMenu name={name} detail={email} variant={rail ? "rail" : "card"} signOut={signOutLandlord}>
         <DropdownMenuItem asChild>
-          <Link href="/admin/settings" className="text-foreground no-underline">
+          <Link prefetch={false} href="/admin/settings" className="text-foreground no-underline">
             <Settings className="size-4" aria-hidden /> Settings
           </Link>
         </DropdownMenuItem>

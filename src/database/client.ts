@@ -5,6 +5,7 @@ import { waitUntil } from "@vercel/functions";
 import postgres from "postgres";
 import { getEnvironment } from "@/configuration/environment";
 import * as schema from "./schema";
+import { traceClient } from "./trace";
 
 export type Database = PostgresJsDatabase<typeof schema>;
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
@@ -57,6 +58,35 @@ function keepRunningUntilIdle(): void {
   }
 }
 
+const QUERY_TIMEOUT_SECONDS = 20;
+
+/**
+ * postgres.js 4 sends a parameter without a type, and before running a query with any untyped value other than a
+ * number or null it asks the server for the parameter types: a second round trip for almost every query (Drizzle
+ * passes ids, dates and statuses as strings). That doubled every query's time (about 390 ms instead of 195 ms from
+ * Kenya to Frankfurt). Strings are sent as type "unknown" (705) instead, which is what psql and libpq do: the server
+ * works the type out from the query exactly as it does while describing, the text is sent as it is, and the query
+ * runs in one round trip. Booleans are sent as boolean. Other values (numbers, null, Dates, objects) are unchanged.
+ */
+function typeParametersUpFront(sql: postgres.Sql): void {
+  const toWire = (value: unknown) =>
+    typeof value === "string" ? sql.typed(value, 705) : typeof value === "boolean" ? sql.typed(value, 16) : value;
+  const wrap = (client: postgres.Sql) => {
+    const unsafe = client.unsafe.bind(client) as (text: string, parameters?: unknown[], options?: unknown) => unknown;
+    (client as unknown as { unsafe: unknown }).unsafe = (text: string, parameters?: unknown[], options?: unknown) =>
+      unsafe(text, parameters?.map(toWire), options);
+  };
+  wrap(sql);
+  const begin = sql.begin.bind(sql) as (...args: unknown[]) => Promise<unknown>;
+  (sql as unknown as { begin: unknown }).begin = (...args: unknown[]) => {
+    const work = args[args.length - 1] as (transaction: postgres.Sql) => unknown;
+    return begin(...args.slice(0, -1), (transaction: postgres.Sql) => {
+      wrap(transaction);
+      return work(transaction);
+    });
+  };
+}
+
 function connect(): Connection {
   const environment = getEnvironment();
   const sql = postgres(environment.DATABASE_URL, {
@@ -71,8 +101,14 @@ function connect(): Connection {
     // more parallel queries than the pool had connections, the pool hung for good (every admin page stuck
     // loading, at once with DATABASE_POOL_SIZE=1). Extra queries now wait for a free connection instead.
     max_pipeline: 1,
+    // Seconds a query may wait for a connection and run. Backstop for a pooler or network that goes silent, which
+    // otherwise leaves the query (and the page) waiting until TCP gives up, many minutes later. The query is then
+    // cancelled, rejects with QUERY_TIMEOUT, and the pool connects again. Transactions also have statement_timeout.
+    query_timeout: QUERY_TIMEOUT_SECONDS,
     onnotice: () => {},
   });
+  typeParametersUpFront(sql);
+  traceClient(sql);
   // Drizzle calls logQuery before every statement, including those inside transactions.
   const database = drizzle(sql, { schema, logger: { logQuery: keepRunningUntilIdle } });
 

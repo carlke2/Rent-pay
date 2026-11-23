@@ -154,8 +154,8 @@ function HelpPopover() {
           <li>The month button changes the month the overview shows.</li>
         </ul>
         <div className="mt-3 flex gap-3 text-sm">
-          <Link href="/admin/settings/integrations">M-Pesa settings</Link>
-          <Link href="/admin/settings/policies">Rent rules</Link>
+          <Link prefetch={false} href="/admin/settings/integrations">M-Pesa settings</Link>
+          <Link prefetch={false} href="/admin/settings/policies">Rent rules</Link>
         </div>
       </PopoverContent>
     </Popover>
@@ -202,7 +202,7 @@ function NotificationsPopover({ attention }: { attention: { items: AttentionItem
               const { icon: Icon, tile } = ATTENTION_ICONS[item.kind];
               return (
                 <li key={`${item.kind}-${item.id}`}>
-                  <Link href={item.href} onClick={() => setOpen(false)} className="flex items-start gap-3 px-4 py-2.5 text-foreground no-underline hover:bg-accent hover:text-foreground">
+                  <Link prefetch={false} href={item.href} onClick={() => setOpen(false)} className="flex items-start gap-3 px-4 py-2.5 text-foreground no-underline hover:bg-accent hover:text-foreground">
                     <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg ring-1", tile)}>
                       <Icon className="size-4" aria-hidden />
                     </span>
@@ -218,7 +218,7 @@ function NotificationsPopover({ attention }: { attention: { items: AttentionItem
         )}
         {total > items.length ? (
           <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-            {total - items.length} more on the <Link href="/admin" onClick={() => setOpen(false)}>overview</Link>.
+            {total - items.length} more on the <Link prefetch={false} href="/admin" onClick={() => setOpen(false)}>overview</Link>.
           </p>
         ) : null}
       </PopoverContent>

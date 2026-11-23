@@ -5,7 +5,7 @@ import { getEnvironment } from "@/configuration/environment";
 import { dueDateFor, graceEndsOn } from "@/core/billing";
 import { unitPaymentStatus } from "@/core/status";
 import { getDatabase } from "@/database/client";
-import { fetchOffsetPage } from "@/database/keyset";
+import { fetchOffsetPage, windowTotal } from "@/database/keyset";
 import type { PageRequest } from "@/utilities/pagination";
 import {
   allocations,
@@ -236,9 +236,10 @@ export async function getTenantBill(lease: TenantLease, invoiceId: string) {
 }
 
 /** Receipts for the lease, newest first. */
-function tenantReceiptQuery(lease: TenantLease) {
+function tenantReceiptQuery(lease: TenantLease, withTotal = false) {
   return getDatabase()
     .select({
+      ...(withTotal ? { total: windowTotal } : {}),
       paymentId: payments.id,
       paidAt: payments.paidAt,
       amount: payments.amount,
@@ -268,7 +269,8 @@ export async function pageTenantReceipts(lease: TenantLease, request: PageReques
           .innerJoin(payments, eq(payments.id, receipts.paymentId))
           .where(eq(payments.leaseId, lease.leaseId))
       )[0]?.count ?? 0,
-    fetch: (limit, offset) => tenantReceiptQuery(lease).limit(limit).offset(offset),
+    fetch: (limit, offset) => tenantReceiptQuery(lease, true).limit(limit).offset(offset),
+    totalOf: (row) => row.total ?? 0,
   });
 }
 

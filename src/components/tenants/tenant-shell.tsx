@@ -98,7 +98,7 @@ export function TenantShell({ appName, tenantName, unitCode, buildingName, canPa
     <div className="theme-tenant min-h-dvh bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r pt-[env(safe-area-inset-top)] border-sidebar-border bg-sidebar lg:flex print:hidden" aria-label="Sidebar">
         <div className="flex h-[72px] shrink-0 items-center px-4">
-          <Link href="/tenants" className="flex min-w-0 items-center" aria-label={`${appName} home`}>
+          <Link prefetch={false} href="/tenants" className="flex min-w-0 items-center" aria-label={`${appName} home`}>
             <ThemedLogo kind="full" height={26} priority />
           </Link>
         </div>
@@ -129,7 +129,7 @@ export function TenantShell({ appName, tenantName, unitCode, buildingName, canPa
 
       <div className="lg:pl-[248px]">
         <header className="sticky top-0 z-30 flex h-[calc(4rem+env(safe-area-inset-top))] items-center gap-2 sm:gap-3 border-b border-sidebar-border bg-background pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:px-6 lg:h-[calc(72px+env(safe-area-inset-top))] lg:px-8 print:hidden">
-          <Link href="/tenants" className="flex min-h-11 shrink-0 items-center lg:hidden" aria-label={`${appName} home`}>
+          <Link prefetch={false} href="/tenants" className="flex min-h-11 shrink-0 items-center lg:hidden" aria-label={`${appName} home`}>
             <ThemedLogo kind="full" height={26} priority />
           </Link>
           {/* Below md the full logo leaves no room for the title (the page heading says it); keep the space so nothing shifts. */}
@@ -141,7 +141,7 @@ export function TenantShell({ appName, tenantName, unitCode, buildingName, canPa
             </span>
           ) : null}
           {canPay && !matches(pathname, "/tenants/pay") ? (
-            <Link
+            <Link prefetch={false}
               href="/tenants/pay"
               className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground no-underline hover:bg-primary/90 hover:text-primary-foreground"
             >
@@ -190,7 +190,7 @@ function ProfileMenu({ name, detail, avatarUrl, compact = false }: { name: strin
   return (
     <UserMenu name={name} detail={detail} avatarSrc={avatarUrl} variant={compact ? "compact" : "card"} signOut={signOutTenant}>
       <DropdownMenuItem asChild>
-        <Link href="/tenants/profile" className="text-foreground no-underline">
+        <Link prefetch={false} href="/tenants/profile" className="text-foreground no-underline">
           <UserRound className="size-4" aria-hidden /> Profile
           <ChevronRight className="ml-auto size-4 text-muted-foreground" aria-hidden />
         </Link>

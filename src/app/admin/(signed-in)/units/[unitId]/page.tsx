@@ -32,12 +32,12 @@ export default async function UnitPage({ params }: PageProps<"/admin/units/[unit
           <>
             {!current && unit.status === "vacant" ? (
               <Button asChild size="sm">
-                <Link href={`/admin/move-in?unitId=${unit.id}`} className="no-underline">Move in</Link>
+                <Link prefetch={false} href={`/admin/move-in?unitId=${unit.id}`} className="no-underline">Move in</Link>
               </Button>
             ) : null}
             {current ? (
               <Button asChild size="sm" variant="outline">
-                <Link href={`/admin/move-out?leaseId=${current.leaseId}`} className="text-foreground no-underline">Move out</Link>
+                <Link prefetch={false} href={`/admin/move-out?leaseId=${current.leaseId}`} className="text-foreground no-underline">Move out</Link>
               </Button>
             ) : null}
             <ActionForm
@@ -124,7 +124,7 @@ export default async function UnitPage({ params }: PageProps<"/admin/units/[unit
           {current ? (
             <DetailList
               items={[
-                ["Tenant", <Link key="tenant" href={`/admin/tenants/${current.tenantId}?lease=${current.leaseId}`}>{current.tenantName}</Link>],
+                ["Tenant", <Link prefetch={false} key="tenant" href={`/admin/tenants/${current.tenantId}?lease=${current.leaseId}`}>{current.tenantName}</Link>],
                 ["Phone", `0${current.tenantPhone.slice(3)}`],
                 ["Status", <StatusBadge key="status" status={current.status} />],
                 ["Since", formatDate(current.startDate)],
@@ -168,7 +168,7 @@ export default async function UnitPage({ params }: PageProps<"/admin/units/[unit
             rows={detail.pastLeases}
             rowKey={(row) => row.leaseId}
             columns={[
-              { key: "tenant", header: "Tenant", primary: true, cell: (row) => <Link href={`/admin/tenants/${row.tenantId}?lease=${row.leaseId}`}>{row.tenantName}</Link> },
+              { key: "tenant", header: "Tenant", primary: true, cell: (row) => <Link prefetch={false} href={`/admin/tenants/${row.tenantId}?lease=${row.leaseId}`}>{row.tenantName}</Link> },
               { key: "from", header: "From", cell: (row) => formatDate(row.startDate) },
               { key: "to", header: "To", cell: (row) => (row.endDate ? formatDate(row.endDate) : "–") },
               { key: "refund", header: "Deposit to refund", align: "right", cell: (row) => <Money amount={Math.max(0, row.depositRefundDue - row.depositRefundedAmount)} /> },

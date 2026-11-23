@@ -44,7 +44,7 @@ async function ReceiptRows({ lease, params }: { lease: Lease; params: SearchPara
         <ul className="grid gap-2">
           {receipts.map((receipt) => (
             <li key={receipt.paymentId}>
-              <Link href={`/receipts/${receipt.receiptToken}`} className="flex min-h-[72px] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-foreground no-underline hover:bg-surface-muted">
+              <Link prefetch={false} href={`/receipts/${receipt.receiptToken}`} className="flex min-h-[72px] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-foreground no-underline hover:bg-surface-muted">
                 <div className="flex-1">
                   <Money amount={receipt.amount} className="font-semibold text-heading" />
                   <p className="text-sm text-muted-foreground">{formatNairobiDateTime(receipt.paidAt)}</p>

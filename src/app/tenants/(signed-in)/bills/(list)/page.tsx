@@ -44,7 +44,7 @@ async function BillRows({ lease, params }: { lease: Lease; params: SearchParams 
         <ul className="grid gap-2">
           {bills.map((bill) => (
             <li key={bill.invoiceId}>
-              <Link href={`/tenants/bills/${bill.invoiceId}`} className="flex min-h-[72px] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-foreground no-underline hover:bg-surface-muted">
+              <Link prefetch={false} href={`/tenants/bills/${bill.invoiceId}`} className="flex min-h-[72px] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-foreground no-underline hover:bg-surface-muted">
                 <div className="flex-1">
                   <p className="font-semibold text-heading">{formatPeriod(bill.period)}</p>
                   <p className="text-sm text-muted-foreground">Due {formatDate(bill.dueDate)}</p>
