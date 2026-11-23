@@ -74,22 +74,56 @@ export function getBankDetails() {
   return Object.values(details).some(Boolean) ? details : null;
 }
 
-/** Everything the tenant home screen shows. */
-export async function getTenantHome(lease: TenantLease, today: IsoDate = todayInNairobi()) {
+/**
+ * Everything the tenant overview shows, in one round of 4 parallel queries (it was 10, so with the pool of 5 it took
+ * several round trips): balance, last payment and the paid trend come from one query; bills and the billed trend from
+ * one load of invoice lines; the policy is read once; and only the 5 newest receipts are fetched, with the count of
+ * valid receipts worked out alongside.
+ */
+export async function getTenantOverview(lease: TenantLease, months = 12, today: IsoDate = todayInNairobi()) {
   const database = getDatabase();
-  const [balance, bills, [lastPayment], policy] = await Promise.all([
-    leaseBalance(lease.leaseId),
+  const end = periodOf(today);
+  const first = addMonthsToPeriod(end, -(months - 1));
+  const [[summary], bills, policy, receiptRows] = await Promise.all([
+    database.execute(sql`
+      select
+        (select coalesce(sum(l.debit - l.credit), 0)::int from ledger_entries l where l.lease_id = ${lease.leaseId}) as balance,
+        (select json_build_object('amount', p.amount, 'paidAt', p.paid_at, 'receiptToken', r.token)
+           from payments p left join receipts r on r.payment_id = p.id
+           where p.lease_id = ${lease.leaseId} and p.match_status = 'matched'
+           order by p.paid_at desc limit 1) as last_payment,
+        (select coalesce(json_agg(json_build_object('period', t.period, 'amount', t.amount)), '[]'::json)
+           from (select to_char(p.paid_at at time zone 'Africa/Nairobi', 'YYYY-MM') as period, sum(p.amount)::int as amount
+                 from payments p
+                 where p.lease_id = ${lease.leaseId} and p.match_status = 'matched'
+                   and p.paid_at >= (${`${first}-01`}::date::timestamp at time zone 'Africa/Nairobi')
+                 group by 1) t) as paid`),
     listInvoicesForLease(lease.leaseId),
-    database
-      .select({ amount: payments.amount, paidAt: payments.paidAt, mpesaReceipt: payments.mpesaReceipt, receiptToken: receipts.token, receiptNumber: receipts.number })
-      .from(payments)
-      .leftJoin(receipts, eq(receipts.paymentId, payments.id))
-      .where(and(eq(payments.leaseId, lease.leaseId), eq(payments.matchStatus, "matched")))
-      .orderBy(desc(payments.paidAt))
-      .limit(1),
     getPolicy(lease.buildingId, today),
+    database
+      .select({
+        paymentId: payments.id,
+        paidAt: payments.paidAt,
+        amount: payments.amount,
+        receiptNumber: receipts.number,
+        receiptToken: receipts.token,
+        voided: sql<boolean>`${receipts.voidedAt} is not null`,
+        // Window counts run before the limit, so this is over all the lease's receipts.
+        validCount: sql<number>`(count(*) filter (where ${receipts.voidedAt} is null) over ())::int`,
+      })
+      .from(receipts)
+      .innerJoin(payments, eq(payments.id, receipts.paymentId))
+      .where(eq(payments.leaseId, lease.leaseId))
+      .orderBy(desc(payments.paidAt), desc(payments.id))
+      .limit(5),
   ]);
+  const row = summary as { balance: number; last_payment: { amount: number; paidAt: string; receiptToken: string | null } | null; paid: { period: string; amount: number }[] };
+  const balance = row.balance;
+  const lastPayment = row.last_payment ? { ...row.last_payment, paidAt: new Date(row.last_payment.paidAt) } : null;
+  const recentReceipts = receiptRows.map(({ validCount: _count, ...receipt }) => receipt);
+  const receiptCount = receiptRows[0]?.validCount ?? 0;
 
+  // Home status.
   const oldestOpen = [...bills].reverse().find((bill) => bill.open > 0) ?? null;
   const thisMonthDue = dueDateFor(currentPeriod(), policy.settings.dueDay);
   const nextDue = today <= thisMonthDue ? thisMonthDue : dueDateFor(addMonthsToPeriod(currentPeriod(), 1), policy.settings.dueDay);
@@ -102,59 +136,49 @@ export async function getTenantHome(lease: TenantLease, today: IsoDate = todayIn
     graceEndsOn: oldestOpen ? graceEndsOn(oldestOpen.dueDate, policy.settings.graceDays) : null,
   });
 
+  // Bill statuses (same rules as listTenantBills).
+  const billsWithStatus = bills.map((bill) => ({ ...bill, status: billStatus(bill, policy.settings.graceDays, today) }));
+
+  // Trend: billed from the invoice totals already loaded, paid from the payments query.
+  const billed = new Map<string, number>();
+  for (const bill of bills) if (bill.period >= first && bill.period <= end) billed.set(bill.period, (billed.get(bill.period) ?? 0) + bill.total);
+  const paid = new Map(row.paid.map((point) => [point.period, point.amount]));
+  const startPeriod = periodOf(lease.startDate);
+  const trend = Array.from({ length: months }, (_, index) => addMonthsToPeriod(first, index))
+    .filter((period) => period >= startPeriod)
+    .map((period) => ({ period, billed: billed.get(period) ?? 0, paid: paid.get(period) ?? 0 }));
+
   return {
-    firstName: lease.tenantName.split(" ")[0] ?? lease.tenantName,
-    balance,
-    dueDate: balance > 0 ? (oldestOpen?.dueDate ?? nextDue) : nextDue,
-    status,
-    lastPayment: lastPayment ?? null,
-    paybill: getEnvironment().MPESA_SHORTCODE,
+    home: {
+      firstName: lease.tenantName.split(" ")[0] ?? lease.tenantName,
+      balance,
+      dueDate: balance > 0 ? (oldestOpen?.dueDate ?? nextDue) : nextDue,
+      status,
+      lastPayment,
+      paybill: getEnvironment().MPESA_SHORTCODE,
+    },
+    trend,
+    openBills: bills.filter((bill) => bill.open > 0).length,
+    recentBills: billsWithStatus.slice(0, 6),
+    recentReceipts,
+    receiptCount,
   };
 }
 
-/**
- * Billed (invoice totals) and paid (matched payments, by Nairobi month) for the lease, for `months` months ending
- * this month. Months before the lease started are left out.
- */
-export async function getTenantTrend(lease: TenantLease, months = 6, today: IsoDate = todayInNairobi()) {
-  const end = periodOf(today);
-  const first = addMonthsToPeriod(end, -(months - 1));
-  const database = getDatabase();
-  const [billedRows, paidRows] = await Promise.all([
-    database.execute(sql`
-      select i.period, coalesce(sum(il.amount - il.waived_amount), 0)::int as amount
-      from invoices i join invoice_lines il on il.invoice_id = i.id
-      where i.lease_id = ${lease.leaseId} and i.period >= ${first} and i.period <= ${end}
-      group by i.period`),
-    database.execute(sql`
-      select to_char(p.paid_at at time zone 'Africa/Nairobi', 'YYYY-MM') as period, coalesce(sum(p.amount), 0)::int as amount
-      from payments p
-      where p.lease_id = ${lease.leaseId} and p.match_status = 'matched'
-        and to_char(p.paid_at at time zone 'Africa/Nairobi', 'YYYY-MM') >= ${first}
-      group by 1`),
-  ]);
-  const billed = new Map(([...billedRows] as { period: string; amount: number }[]).map((row) => [row.period, row.amount]));
-  const paid = new Map(([...paidRows] as { period: string; amount: number }[]).map((row) => [row.period, row.amount]));
-  const startPeriod = periodOf(lease.startDate);
-  return Array.from({ length: months }, (_, index) => addMonthsToPeriod(first, index))
-    .filter((period) => period >= startPeriod)
-    .map((period) => ({ period, billed: billed.get(period) ?? 0, paid: paid.get(period) ?? 0 }));
+function billStatus(bill: { open: number; paid: number; dueDate: string }, graceDays: number, today: IsoDate) {
+  return bill.open === 0
+    ? ("paid" as const)
+    : today > graceEndsOn(bill.dueDate, graceDays)
+      ? ("overdue" as const)
+      : bill.paid > 0
+        ? ("partial" as const)
+        : ("unpaid" as const);
 }
 
 /** A tenant's bills, newest first, with total, open amount and status. */
 export async function listTenantBills(lease: TenantLease, today: IsoDate = todayInNairobi()) {
   const [bills, policy] = await Promise.all([listInvoicesForLease(lease.leaseId), getPolicy(lease.buildingId, today)]);
-  return bills.map((bill) => ({
-    ...bill,
-    status:
-      bill.open === 0
-        ? ("paid" as const)
-        : today > graceEndsOn(bill.dueDate, policy.settings.graceDays)
-          ? ("overdue" as const)
-          : bill.paid > 0
-            ? ("partial" as const)
-            : ("unpaid" as const),
-  }));
+  return bills.map((bill) => ({ ...bill, status: billStatus(bill, policy.settings.graceDays, today) }));
 }
 
 /** One bill with its lines (water with readings), waived amounts and the payments that covered it. */
@@ -230,10 +254,6 @@ function tenantReceiptQuery(lease: TenantLease) {
     .where(eq(payments.leaseId, lease.leaseId))
     .orderBy(desc(payments.paidAt), desc(payments.id))
     .$dynamic();
-}
-
-export async function listTenantReceipts(lease: TenantLease) {
-  return tenantReceiptQuery(lease);
 }
 
 /** One page (25) of the tenant's receipts, newest first. */

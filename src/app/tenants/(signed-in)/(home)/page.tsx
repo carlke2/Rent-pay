@@ -17,7 +17,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { TrendChart } from "@/components/shared/trend-chart";
 import { Button } from "@/components/shared/ui/button";
 import { PaybillCard } from "@/components/tenants/paybill-card";
-import { getTenantHome, getTenantTrend, listTenantBills, listTenantReceipts } from "@/services/portal";
+import { getTenantOverview } from "@/services/portal";
 import { cn } from "@/utilities/class-names";
 import { currentPeriod, formatDate, formatNairobiDateTime, formatPeriod } from "@/utilities/dates";
 import { formatShillings, sumShillings } from "@/utilities/money";
@@ -31,10 +31,9 @@ const STATUS_LABEL = { paid: "Paid up", overdue: "Overdue", partial: "Part paid"
 export default async function TenantOverviewPage() {
   const { lease } = await currentTenantLease();
   if (!lease) return null;
-  const [home, trend, bills, receipts] = await Promise.all([getTenantHome(lease), getTenantTrend(lease, 12), listTenantBills(lease), listTenantReceipts(lease)]);
+  const { home, trend, openBills, recentBills, recentReceipts, receiptCount } = await getTenantOverview(lease, 12);
   const owes = home.balance > 0;
   const paidInSixMonths = sumShillings(trend.slice(-6).map((point) => point.paid));
-  const openBills = bills.filter((bill) => bill.open > 0).length;
   const statusLabel = STATUS_LABEL[home.status as keyof typeof STATUS_LABEL] ?? (owes ? "Due" : "Up to date");
   const canPay = lease.isCurrent;
 
@@ -108,10 +107,7 @@ export default async function TenantOverviewPage() {
           label="Paid in 6 months"
           value={<Amount value={paidInSixMonths} />}
           pill={openBills > 0 ? <Pill tone="partial">{openBills} open {openBills === 1 ? "bill" : "bills"}</Pill> : <Pill tone="paid">All bills paid</Pill>}
-          note={(() => {
-            const count = receipts.filter((receipt) => !receipt.voided).length;
-            return `${count} ${count === 1 ? "receipt" : "receipts"} in total`;
-          })()}
+          note={`${receiptCount} ${receiptCount === 1 ? "receipt" : "receipts"} in total`}
         />
       </section>
 
@@ -141,15 +137,16 @@ export default async function TenantOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <RecentBills bills={bills.slice(0, 6)} />
-        <RecentReceipts receipts={receipts.slice(0, 5)} />
+        <RecentBills bills={recentBills} />
+        <RecentReceipts receipts={recentReceipts} />
       </div>
     </>
   );
 }
 
-type Bill = Awaited<ReturnType<typeof listTenantBills>>[number];
-type Receipt = Awaited<ReturnType<typeof listTenantReceipts>>[number];
+type Overview = Awaited<ReturnType<typeof getTenantOverview>>;
+type Bill = Overview["recentBills"][number];
+type Receipt = Overview["recentReceipts"][number];
 
 function AllLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
