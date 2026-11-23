@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { TenantLoginForm } from "@/components/tenants/login-form";
 import { SignInLayout } from "@/components/shared/sign-in/sign-in-layout";
-import { getEnvironment } from "@/configuration/environment";
+import { getEnvironment, isTestSignInEnabled, publicPaybill } from "@/configuration/environment";
 
 export const metadata: Metadata = { title: "Tenant sign in" };
 
@@ -17,11 +17,11 @@ export default async function TenantLoginPage({ searchParams }: PageProps<"/tena
   return (
     <SignInLayout messages={TENANT_MESSAGES}>
       <TenantLoginForm
-        paybill={environment.MPESA_SHORTCODE}
+        paybill={publicPaybill()}
         appName={environment.APP_NAME}
         supportEmail={environment.SUPPORT_EMAIL}
         expiredLink={link === "expired"}
-        testSignIn={environment.MPESA_ENV === "sandbox"}
+        testSignIn={isTestSignInEnabled()}
       />
     </SignInLayout>
   );

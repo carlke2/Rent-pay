@@ -190,10 +190,14 @@ S3_BUCKET=                                   # private bucket, no spaces
 S3_ACCESS_KEY_ID=
 S3_SECRET_ACCESS_KEY=
 
-# Development only
+# Development only (never add these to Vercel)
 SEED_LANDLORD_EMAIL=
 SEED_LANDLORD_PASSWORD=
+ENABLE_TEST_SIGNIN=                          # true: tenant "Test sign-in" (phone + unit code, no SMS) with npm run dev;
+                                             # always off on Vercel (VERCEL_ENV) and with NODE_ENV=production
 ```
+
+The tenant login shows "Or pay from M-Pesa: Paybill …" only when `MPESA_ENV=live` (the Paybill shown under Settings → Integrations); sandbox test shortcodes are never shown to tenants.
 
 ---
 
@@ -291,7 +295,7 @@ Real payments need, from Safaricom:
 1. The Paybill and Daraja production approval (live keys and passkey).
 2. The validation URL enabled for the Paybill.
 
-Then set `MPESA_ENV=live` with the live keys, press **Register URLs**, and make one real KES 10 payment by Paybill and by Pay now before moving tenants over. Sandbox endpoints and the test-only tenant sign-in stop working in live mode.
+Then set `MPESA_ENV=live` with the live keys, press **Register URLs**, and make one real KES 10 payment by Paybill and by Pay now before moving tenants over. Sandbox endpoints stop working in live mode. The tenant test sign-in never exists on a deployed site (see `ENABLE_TEST_SIGNIN`).
 
 > Only one system can receive Paybill (C2B) notifications per Paybill. Registering URLs here moves them away from any other app using the same Paybill.
 

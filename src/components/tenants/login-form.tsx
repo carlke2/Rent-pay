@@ -39,11 +39,12 @@ export function TenantLoginForm({
   expiredLink,
   testSignIn = false,
 }: {
-  paybill: string;
+  /** The live Paybill; null hides the "pay from M-Pesa" line. */
+  paybill: string | null;
   appName: string;
   supportEmail?: string;
   expiredLink?: boolean;
-  /** MPESA_ENV=sandbox: offer the phone + unit code shortcut, clearly labelled "Test sign-in". */
+  /** Local development only (isTestSignInEnabled): offer the phone + unit code shortcut, labelled "Test sign-in". */
   testSignIn?: boolean;
 }) {
   const [state, dispatch, actionPending] = useActionState<TenantLoginState, FormData>(tenantLogin, {
@@ -134,7 +135,7 @@ export function TenantLoginForm({
         <Logo variant="light" kind="full" height={36} priority />
       </div>
         <p className={styles.testBadge} role="note">
-          <FlaskConical width={16} height={16} aria-hidden="true" /> Test sign-in · sandbox only
+          <FlaskConical width={16} height={16} aria-hidden="true" /> Test sign-in · local only
         </p>
         <div className={styles.headingBlock}>
           <h1 className={styles.heading}>Test sign-in</h1>
@@ -218,13 +219,15 @@ export function TenantLoginForm({
 
       {testSignIn ? (
         <button type="submit" name="intent" value="use-unit" formNoValidate className={styles.testLink}>
-          <FlaskConical width={16} height={16} aria-hidden="true" /> Test sign-in (sandbox): phone + unit code
+          <FlaskConical width={16} height={16} aria-hidden="true" /> Test sign-in (local only): phone + unit code
         </button>
       ) : null}
 
-      <p className={styles.paybill}>
-        Or pay from M-Pesa: Paybill <strong>{paybill}</strong>, account = your unit code.
-      </p>
+      {paybill ? (
+        <p className={styles.paybill}>
+          Or pay from M-Pesa: Paybill <strong>{paybill}</strong>, account = your unit code.
+        </p>
+      ) : null}
 
       <div className={styles.footer}>
         <p className={styles.footnote}>

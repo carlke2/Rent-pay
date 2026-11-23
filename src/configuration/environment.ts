@@ -72,6 +72,11 @@ const environmentSchema = z
 
     /** Set by Vercel on its servers ("1"); used to insist on S3 storage there. */
     VERCEL: optionalText,
+    /** Set by Vercel to "production", "preview" or "development"; unset when the app runs anywhere else. */
+    VERCEL_ENV: optionalText,
+
+    /** Local development only: offers the phone + unit code "Test sign-in" to tenants. See isTestSignInEnabled(). */
+    ENABLE_TEST_SIGNIN: optionalText.transform((value) => value?.toLowerCase() === "true"),
 
     SEED_LANDLORD_EMAIL: optionalText.pipe(z.email().optional()),
     SEED_LANDLORD_PASSWORD: optionalText,
@@ -151,4 +156,20 @@ export function getEnvironment(): Environment {
 
 export function isProduction(): boolean {
   return getEnvironment().NODE_ENV === "production";
+}
+
+/**
+ * The tenant phone + unit code "Test sign-in" skips the SMS code, so it must never exist on a deployed site.
+ * On only when ENABLE_TEST_SIGNIN=true AND the app is not on Vercel (VERCEL_ENV unset) AND NODE_ENV is not
+ * production. Independent of MPESA_ENV. Off by default.
+ */
+export function isTestSignInEnabled(): boolean {
+  const environment = getEnvironment();
+  return environment.ENABLE_TEST_SIGNIN && !environment.VERCEL_ENV && environment.NODE_ENV !== "production";
+}
+
+/** The Paybill tenants can pay to from the M-Pesa menu: the live C2B shortcode, or null in the sandbox (test numbers). */
+export function publicPaybill(): string | null {
+  const environment = getEnvironment();
+  return environment.MPESA_ENV === "live" ? environment.MPESA_SHORTCODE : null;
 }

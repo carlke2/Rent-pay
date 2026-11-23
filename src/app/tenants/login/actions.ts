@@ -7,7 +7,7 @@ import { z } from "zod";
 import { checkLoginCode, issueLoginCode, LOGIN_CODE_LENGTH } from "@/authentication/login-codes";
 import { clearPendingLogin, createSession, readPendingLogin, setPendingLogin } from "@/authentication/session";
 import { checkUnitLogin, UNIT_LOGIN_WINDOW_MINUTES } from "@/authentication/unit-login";
-import { getEnvironment } from "@/configuration/environment";
+import { isTestSignInEnabled } from "@/configuration/environment";
 import { getDatabase } from "@/database/client";
 import { leases, tenants } from "@/database/schema";
 import { sendLoginCode } from "@/services/notifications";
@@ -51,17 +51,16 @@ async function clientAddress(): Promise<string | null> {
   return list.get("x-forwarded-for")?.split(",")[0]?.trim() || list.get("x-real-ip") || null;
 }
 
-/** The phone + unit code shortcut is a test sign-in: it only exists when MPESA_ENV=sandbox. */
-function testSignInAllowed(): boolean {
-  return getEnvironment().MPESA_ENV === "sandbox";
-}
+/** The phone + unit code shortcut is a local-only test sign-in (see isTestSignInEnabled). */
+const testSignInAllowed = isTestSignInEnabled;
 
 /**
  * Two ways in:
  * - phone number → 6-digit SMS code → (if more than one current lease) choose the lease → 30-day session.
  *   This is the only sign-in in live mode.
- * - sandbox only ("Test sign-in"): phone number + unit code (e.g. ROOM1K) → 30-day session for that unit's lease.
- *   Refused here on the server when MPESA_ENV=live, whatever the form sends.
+ * - local development only ("Test sign-in", ENABLE_TEST_SIGNIN=true, never on Vercel or with NODE_ENV=production):
+ *   phone number + unit code (e.g. ROOM1K) → 30-day session for that unit's lease.
+ *   Refused here on the server when disabled, whatever the form sends.
  */
 export async function tenantLogin(previous: TenantLoginState, formData: FormData): Promise<TenantLoginState> {
   const intent = formData.get("intent");
@@ -77,8 +76,8 @@ export async function tenantLogin(previous: TenantLoginState, formData: FormData
 
   if (intent === "unit") {
     if (!testSignInAllowed()) {
-      console.warn("[tenant login] phone + unit code sign-in refused: test sign-in is sandbox only");
-      return { step: "phone", method: "code", error: "Sign in with the code we text to your phone." };
+      console.warn("[tenant login] phone + unit code sign-in refused: test sign-in is not enabled here");
+      return { step: "phone", method: "code", error: "Test sign-in is not available. Sign in with the code we text to your phone." };
     }
     const typedPhone = String(formData.get("phone") ?? "").slice(0, 20);
     const typedUnit = String(formData.get("unit") ?? "").slice(0, 30);
