@@ -1,6 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { hasCallbackKey } from "@/authentication/secrets";
+import { checkCallbackKey } from "@/authentication/secrets";
 import { queueJob } from "@/services/jobs";
 import { storeCallback, type CallbackKind } from "@/services/payments";
 import { logError } from "@/utilities/log";
@@ -15,16 +15,19 @@ export async function readCallbackBody(request: Request): Promise<unknown> {
   }
 }
 
-export function unauthorised() {
+/** Logs why a callback was refused (never the key itself) and answers 401. */
+export function unauthorised(kind: CallbackKind, reason: string) {
+  console.warn(`Refused ${kind} callback: ${reason}`);
   return NextResponse.json({ ResultCode: 1, ResultDesc: "Unauthorised" }, { status: 401 });
 }
 
 /**
  * Shared flow for stk-result and paybill-confirmation:
- * check the key, store the raw body, queue processing, reply at once.
+ * check the key (?key=, or pathKey from /…/{key}), store the raw body, queue processing, reply at once.
  */
-export async function receiveCallback(request: Request, kind: Exclude<CallbackKind, "paybill_validation">, reply: object) {
-  if (!hasCallbackKey(request)) return unauthorised();
+export async function receiveCallback(request: Request, kind: Exclude<CallbackKind, "paybill_validation">, reply: object, pathKey?: string) {
+  const key = checkCallbackKey(request, pathKey);
+  if (!key.ok) return unauthorised(kind, key.reason);
 
   const payload = await readCallbackBody(request);
   let callbackId: string;

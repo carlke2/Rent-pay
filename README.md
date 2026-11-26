@@ -213,8 +213,8 @@ Callback routes (Safaricom calls these):
 | Route | Purpose |
 | --- | --- |
 | `/api/payments/stk-result` | Result of a portal (STK) payment |
-| `/api/payments/paybill-validation` | Accepts known unit codes, rejects unknown ones (`C2B00012`) |
-| `/api/payments/paybill-confirmation` | A completed Paybill payment |
+| `/api/payments/paybill-validation/{key}` | Accepts every payment with a valid amount, any account number (unknown ones land in Unmatched) |
+| `/api/payments/paybill-confirmation/{key}` | A completed Paybill payment. Paybill URLs carry the callback key as the last path segment because the Daraja sandbox drops query strings; `?key=` is still accepted |
 
 Every callback is checked against `MPESA_CALLBACK_KEY`, stored raw in `payment_callbacks`, answered at once and processed in the background.
 

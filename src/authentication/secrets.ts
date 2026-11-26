@@ -10,9 +10,22 @@ export function secretsMatch(provided: string | null | undefined, expected: stri
   return timingSafeEqual(a, b);
 }
 
-/** Checks ?key= on a Daraja callback URL against MPESA_CALLBACK_KEY. */
-export function hasCallbackKey(request: Request): boolean {
-  return secretsMatch(new URL(request.url).searchParams.get("key"), getEnvironment().MPESA_CALLBACK_KEY);
+export type CallbackKeyCheck = { ok: true } | { ok: false; reason: string };
+
+/**
+ * Checks a Daraja callback's key, given as ?key= or as the last path segment (pathKey); either one matching is
+ * enough. The Daraja sandbox drops query strings from registered C2B URLs, hence the path form.
+ * The failure reason is safe to log: it shows at most the first 4 characters of the key that was sent.
+ */
+export function checkCallbackKey(request: Request, pathKey?: string): CallbackKeyCheck {
+  const expected = getEnvironment().MPESA_CALLBACK_KEY;
+  const candidates = [pathKey, new URL(request.url).searchParams.get("key")].filter((value): value is string => Boolean(value));
+  if (candidates.length === 0) return { ok: false, reason: "missing key" };
+  // Check every candidate so the time taken doesn't depend on which one matched.
+  const matches = candidates.map((candidate) => secretsMatch(candidate, expected));
+  if (matches.some(Boolean)) return { ok: true };
+  const prefix = (candidates[0] ?? "").slice(0, 4).replace(/[^A-Za-z0-9_-]/g, "?");
+  return { ok: false, reason: `key mismatch (first 4 chars: ${prefix})` };
 }
 
 /** Checks Authorization: Bearer ${CRON_SECRET} on job routes. */

@@ -30,14 +30,21 @@ export function normalisePhone(input: string): string {
   return phone;
 }
 
-/** Builds one of our callback URLs and refuses any path Daraja would reject. */
+/**
+ * Builds one of our callback URLs and refuses any path Daraja would reject.
+ * STK keeps the key in ?key=. Paybill URLs carry it as the last path segment, because the Daraja sandbox drops
+ * the query string from registered C2B URLs.
+ */
 export function callbackUrl(path: "stk-result" | "paybill-validation" | "paybill-confirmation"): string {
   const { APP_URL, MPESA_CALLBACK_KEY } = getEnvironment();
   const url = `${APP_URL.replace(/\/+$/, "")}/api/payments/${path}`;
   const lowered = url.toLowerCase();
   const word = FORBIDDEN_URL_WORDS.find((forbidden) => lowered.includes(forbidden));
   if (word) throw new Error(`Callback URL ${url} contains "${word}", which Daraja rejects`);
-  return `${url}?key=${encodeURIComponent(MPESA_CALLBACK_KEY)}`;
+  if (path === "stk-result") return `${url}?key=${encodeURIComponent(MPESA_CALLBACK_KEY)}`;
+  const keyWord = FORBIDDEN_URL_WORDS.find((forbidden) => MPESA_CALLBACK_KEY.toLowerCase().includes(forbidden));
+  if (keyWord) throw new Error(`MPESA_CALLBACK_KEY contains "${keyWord}", which Daraja rejects in URLs: choose another key`);
+  return `${url}/${encodeURIComponent(MPESA_CALLBACK_KEY)}`;
 }
 
 function stkPassword(timestamp: string): string {
