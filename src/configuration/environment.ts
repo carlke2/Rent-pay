@@ -40,6 +40,11 @@ const environmentSchema = z
     MPESA_STK_SHORTCODE: optionalText.pipe(shortcode.optional()),
     MPESA_STK_PASSKEY: z.string().trim().min(1),
     MPESA_CALLBACK_KEY: secret(16).regex(/^[A-Za-z0-9_-]+$/, "must be URL-safe (letters, digits, - and _)"),
+    /**
+     * Sandbox only: a second accepted callback key, for Daraja sandbox shortcodes that ignore re-registration and keep
+     * calling an old URL. Ignored completely when MPESA_ENV=live.
+     */
+    MPESA_SANDBOX_LEGACY_CALLBACK_KEY: optionalText,
 
     SMS_PROVIDER: z.enum(["console", "africastalking", "advanta", "bongatech"]).default("console"),
     AT_USERNAME: optionalText,

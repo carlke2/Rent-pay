@@ -160,6 +160,7 @@ MPESA_SHORTCODE=                             # Paybill for C2B, 5-7 digits (sand
 MPESA_STK_SHORTCODE=                         # optional; sandbox: 174379; live: defaults to MPESA_SHORTCODE
 MPESA_STK_PASSKEY=                           # Lipa na M-Pesa Online passkey
 MPESA_CALLBACK_KEY=                          # 16+ URL-safe characters, added to callback URLs
+MPESA_SANDBOX_LEGACY_CALLBACK_KEY=           # optional, sandbox only: extra accepted key (ignored when live)
 
 # SMS (must not be console when MPESA_ENV=live)
 SMS_PROVIDER=console                         # console | advanta | bongatech | africastalking
