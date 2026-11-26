@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { hasCallbackKey } from "@/authentication/secrets";
-import { isPayableAccount, storeCallback } from "@/services/payments";
+import { storeCallback } from "@/services/payments";
+import { parseShillings } from "@/utilities/money";
 import { readCallbackBody, unauthorised } from "../receive";
 import { logError } from "@/utilities/log";
 
@@ -8,25 +9,33 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ACCEPT = { ResultCode: "0", ResultDesc: "Accepted" };
-const REJECT = { ResultCode: "C2B00012", ResultDesc: "Rejected" };
+/** Daraja's code for an invalid amount: the only reason we ever refuse a Paybill payment. */
+const REJECT_AMOUNT = { ResultCode: "C2B00013", ResultDesc: "Rejected: invalid amount" };
 
-/** Must answer fast: store the body and run one indexed lookup in parallel, no queue. */
+/** A whole number of shillings, at least 1. */
+function isValidAmount(value: unknown): boolean {
+  try {
+    return parseShillings(String(value ?? "")) >= 1;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Accepts every payment with a valid amount, whatever the account number, so money never bounces back to the
+ * payer. A wrong account is recorded as unmatched by the confirmation callback for the landlord to assign.
+ * Must answer fast: no lookups, and storing the body is best effort.
+ */
 export async function POST(request: Request) {
   if (!hasCallbackKey(request)) return unauthorised();
 
   const payload = await readCallbackBody(request);
-  const billReference =
-    typeof payload === "object" && payload !== null && "BillRefNumber" in payload ? String(payload.BillRefNumber ?? "") : "";
+  const amount = typeof payload === "object" && payload !== null && "TransAmount" in payload ? payload.TransAmount : undefined;
 
-  const [stored, payable] = await Promise.allSettled([
-    storeCallback("paybill_validation", payload),
-    isPayableAccount(billReference),
-  ]);
-  if (stored.status === "rejected") logError("Could not store paybill validation callback", stored.reason);
-  if (payable.status === "rejected") {
-    // If we can't check, accept: the payment is still recorded (unmatched at worst) rather than bounced.
-    logError("Paybill validation lookup failed", payable.reason);
-    return NextResponse.json(ACCEPT);
+  try {
+    await storeCallback("paybill_validation", payload);
+  } catch (error) {
+    logError("Could not store paybill validation callback", error);
   }
-  return NextResponse.json(payable.value ? ACCEPT : REJECT);
+  return NextResponse.json(isValidAmount(amount) ? ACCEPT : REJECT_AMOUNT);
 }
